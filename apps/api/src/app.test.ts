@@ -33,3 +33,17 @@ test("stock movement API requires authentication", async () => {
   assert.equal(response.status, 401);
   assert.equal(response.body.error.code, "UNAUTHENTICATED");
 });
+
+test("add-on purchase API requires store authentication", async () => {
+  const response = await request(app).get("/stores/store-a/addons");
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error.code, "UNAUTHENTICATED");
+});
+
+test("manual payment review API requires authentication", async () => {
+  const response = await request(app).get("/admin/payments");
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error.code, "UNAUTHENTICATED");
+});
