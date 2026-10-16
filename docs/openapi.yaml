@@ -254,6 +254,93 @@ paths:
         "401": { description: يلزم تسجيل الدخول }
         "403": { description: يلزم دور مالك المتجر أو مديره }
         "409": { description: التجربة سبق استخدامها أو يوجد اشتراك قائم }
+  /admin/plans:
+    get:
+      summary: إدارة الباقات
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { description: قائمة الباقات }
+        "401": { description: يلزم تسجيل الدخول }
+        "403": { description: يلزم مسؤول المنصة }
+    post:
+      summary: إنشاء باقة قابلة للتعديل
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name, price]
+              properties:
+                code: { type: string }
+                name: { type: string }
+                price: { type: string }
+                currency: { type: string, default: YER }
+                billingCycle: { type: string, enum: [MONTHLY, QUARTERLY, YEARLY, CUSTOM] }
+                trialDays: { type: integer, minimum: 0, maximum: 365 }
+                limits: { type: object, additionalProperties: { type: integer, minimum: 0 } }
+                features: { type: array, items: { type: string } }
+                isActive: { type: boolean }
+      responses:
+        "201": { description: تم إنشاء الباقة }
+        "401": { description: يلزم تسجيل الدخول }
+        "403": { description: يلزم مسؤول المنصة }
+  /admin/plans/{planId}:
+    patch:
+      summary: تعديل باقة
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: path
+          name: planId
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: تم تعديل الباقة }
+        "401": { description: يلزم تسجيل الدخول }
+        "403": { description: يلزم مسؤول المنصة }
+  /admin/addons:
+    get:
+      summary: إدارة كتالوج الإضافات
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { description: قائمة الإضافات }
+        "401": { description: يلزم تسجيل الدخول }
+        "403": { description: يلزم مسؤول المنصة }
+    post:
+      summary: إنشاء إضافة مستقلة
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name, price]
+              properties:
+                code: { type: string }
+                name: { type: string }
+                price: { type: string }
+                currency: { type: string, default: YER }
+                billingCycle: { type: string, enum: [MONTHLY, QUARTERLY, YEARLY, CUSTOM] }
+                status: { type: string, enum: [DRAFT, AVAILABLE, RETIRED] }
+      responses:
+        "201": { description: تم إنشاء الإضافة }
+        "401": { description: يلزم تسجيل الدخول }
+        "403": { description: يلزم مسؤول المنصة }
+  /admin/addons/{addonId}:
+    patch:
+      summary: تعديل الإضافة أو حالة توفرها
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: path
+          name: addonId
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: تم تعديل الإضافة }
+        "401": { description: يلزم تسجيل الدخول }
+        "403": { description: يلزم مسؤول المنصة }
   /admin/payments:
     get:
       summary: قائمة المدفوعات لمراجعة مسؤول المنصة
@@ -272,6 +359,29 @@ paths:
         "200": { description: قائمة المدفوعات }
         "401": { description: يلزم تسجيل الدخول }
         "403": { description: يلزم مسؤول المنصة }
+  /admin/payments/{paymentId}/reject:
+    post:
+      summary: رفض دفعة مع تسجيل السبب
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: path
+          name: paymentId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 3, maxLength: 1000 }
+      responses:
+        "200": { description: تم رفض الدفعة وتسجيل السبب }
+        "401": { description: يلزم تسجيل الدخول }
+        "403": { description: يلزم مسؤول المنصة }
+        "409": { description: الدفعة لم تعد معلقة }
   /admin/payments/{paymentId}/confirm:
     post:
       summary: تأكيد دفع اشتراك أو إضافة وتفعيل الخدمة
