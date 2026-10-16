@@ -113,6 +113,7 @@ model User {
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
   memberships  StoreMembership[]
+  sessions     Session[]
   auditLogs    AuditLog[]        @relation("AuditActor")
   confirmedPayments Payment[]    @relation("PaymentConfirmer")
 }
@@ -306,4 +307,18 @@ model Payment {
 
   @@index([storeId, status, createdAt])
   @@index([purpose, purposeReference])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  lastSeenAt DateTime?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
 }
