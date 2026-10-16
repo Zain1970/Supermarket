@@ -1,6 +1,7 @@
 import cookieParser from "cookie-parser";
 import express from "express";
 import { authRouter } from "./auth/routes.js";
+import { storeRouter } from "./stores/routes.js";
 
 export const app = express();
 
@@ -17,6 +18,7 @@ app.get("/health", (_request, response) => {
 });
 
 app.use("/auth", authRouter);
+app.use("/stores", storeRouter);
 
 app.use((_request, response) => {
   response.status(404).json({
