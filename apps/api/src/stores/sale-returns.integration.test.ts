@@ -351,4 +351,24 @@ test("sales return integration tests require PostgreSQL", { skip: !databaseAvail
       await cleanupFixture(fixture);
     }
   });
+
+  await t.test("keeps returns inventory-only and does not alter sale payments or customer balances", async () => {
+    const fixture = await createFixture();
+    try {
+      const saleBefore = await prisma.sale.findUniqueOrThrow({ where: { id: fixture.saleId } });
+      const paymentsBefore = await prisma.salePayment.count({ where: { storeId: fixture.storeId, saleId: fixture.saleId } });
+      const response = await submitReturn(fixture, { key: "return-financial-boundary-0001", quantity: "1.000" });
+      assert.equal(response.status, 201);
+
+      const saleAfter = await prisma.sale.findUniqueOrThrow({ where: { id: fixture.saleId } });
+      assert.equal(saleAfter.paidAmount.toString(), saleBefore.paidAmount.toString());
+      assert.equal(saleAfter.balanceDue.toString(), saleBefore.balanceDue.toString());
+      assert.equal(saleAfter.paymentStatus, saleBefore.paymentStatus);
+      assert.equal(saleAfter.totalAmount.toString(), saleBefore.totalAmount.toString());
+      assert.equal(await prisma.salePayment.count({ where: { storeId: fixture.storeId, saleId: fixture.saleId } }), paymentsBefore);
+    } finally {
+      await cleanupFixture(fixture);
+    }
+  });
+
 });
