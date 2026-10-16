@@ -120,6 +120,7 @@ model Store {
   payments      Payment[]
   customers     Customer[]
   sales         Sale[]
+  saleReturns   SaleReturn[]
 
   @@index([status, createdAt])
 }
@@ -283,6 +284,7 @@ model Sale {
   customer        Customer?         @relation(fields: [storeId, customerId], references: [storeId, id], onDelete: Restrict)
   items           SaleItem[]
   payments        SalePayment[]
+  returns         SaleReturn[]
 
   @@unique([storeId, id])
   @@unique([storeId, invoiceNumber])
@@ -440,4 +442,43 @@ model Session {
 
   @@index([userId, expiresAt])
   @@index([expiresAt])
+}
+
+
+model SaleReturn {
+  id             String   @id @default(cuid())
+  storeId        String
+  saleId         String
+  returnNumber   String
+  totalAmount    Decimal  @db.Decimal(14, 2)
+  reason         String
+  note           String?
+  idempotencyKey String
+  requestHash    String
+  actorUserId    String
+  createdAt      DateTime @default(now())
+  store          Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  sale           Sale     @relation(fields: [storeId, saleId], references: [storeId, id], onDelete: Restrict)
+  items          SaleReturnItem[]
+
+  @@unique([storeId, id])
+  @@unique([storeId, returnNumber])
+  @@unique([storeId, idempotencyKey])
+  @@index([storeId, saleId, createdAt])
+}
+
+model SaleReturnItem {
+  id             String   @id @default(cuid())
+  storeId        String
+  returnId       String
+  saleItemId     String
+  productId      String
+  quantity       Decimal  @db.Decimal(14, 3)
+  unitPrice      Decimal  @db.Decimal(14, 2)
+  lineTotal      Decimal  @db.Decimal(14, 2)
+  createdAt      DateTime @default(now())
+  saleReturn     SaleReturn @relation(fields: [storeId, returnId], references: [storeId, id], onDelete: Restrict)
+
+  @@index([storeId, returnId])
+  @@index([storeId, saleItemId])
 }
