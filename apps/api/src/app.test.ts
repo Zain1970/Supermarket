@@ -130,3 +130,14 @@ test("low-stock report API requires store authentication", async () => {
   assert.equal(response.status, 401);
   assert.equal(response.body.error.code, "UNAUTHENTICATED");
 });
+
+
+test("sales return API requires store authentication", async () => {
+  const response = await request(app).post("/stores/store-a/sales/sale-a/returns").set("Idempotency-Key", "return-key-0001").send({
+    reason: "منتج تالف",
+    items: [{ saleItemId: "item-a", quantity: "1" }]
+  });
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error.code, "UNAUTHENTICATED");
+});
