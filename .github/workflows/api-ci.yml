@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
@@ -127,3 +127,17 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+      - name: Commit verified production baseline migration
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/fix/sale-return-prisma-relations'
+        run: |
+          mkdir -p apps/api/prisma/migrations/20261016160000_base_schema
+          cp apps/api/prisma/migrations/20261016160000_ci_baseline/migration.sql apps/api/prisma/migrations/20261016160000_base_schema/migration.sql
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/api/prisma/migrations/20261016160000_base_schema/migration.sql
+          if git diff --cached --quiet; then
+            echo "Committed baseline is already up to date."
+            exit 0
+          fi
+          git commit -m "chore(db): add committed baseline migration"
+          git push origin HEAD:fix/sale-return-prisma-relations
