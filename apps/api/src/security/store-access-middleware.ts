@@ -6,14 +6,11 @@ export type PrincipalResolver = (
 ) => AuthenticatedPrincipal | null | undefined;
 
 /**
- * Creates a store-scoped authorization middleware.
- *
- * The resolver must return a principal created by a verified session/token
- * and database-loaded memberships. This middleware deliberately does not read
- * identity or membership data from request headers or request bodies.
+ * Creates a store-scoped authorization middleware. The principal resolver must
+ * return identity and memberships from the verified server-side session.
  */
 export function requireStoreAccess(
-  resolvePrincipal: PrincipalResolver,
+  resolvePrincipal: PrincipalResolver = (request) => request.principal,
   allowedRoles?: readonly StoreRole[]
 ): RequestHandler {
   return (request, response, next) => {
@@ -40,10 +37,7 @@ export function requireStoreAccess(
       return;
     }
 
-    response.locals.storeAccess = {
-      storeId,
-      userRole: decision.role
-    };
+    response.locals.storeAccess = { storeId, userRole: decision.role };
     next();
   };
 }
