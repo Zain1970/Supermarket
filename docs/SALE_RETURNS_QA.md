@@ -13,12 +13,12 @@ This checklist is required before merging the sales-return changes or deploying 
 ## API and concurrency
 
 - [x] Unauthenticated requests return 401.
-- [ ] Users without store membership or the owner/manager role are denied.
+- [x] Users without store membership or the owner/manager role are denied.
 - [x] A return line from another sale is rejected.
 - [x] A return product or sale line from another store is rejected by database constraints.
 - [x] Repeated idempotency key and identical payload replay the original result.
 - [x] Concurrent requests with the same idempotency key and identical payload replay the winning result rather than returning a generic conflict.
-- [ ] A return containing multiple sale lines for the same product creates distinct stock-movement idempotency keys and commits atomically.
+- [x] A return containing multiple sale lines for the same product creates distinct stock-movement idempotency keys and commits atomically.
 - [x] Reusing an idempotency key with a different payload returns 409.
 - [x] Returning more than the sold quantity, including across concurrent requests, cannot succeed.
 - [x] Any failed return rolls back the return rows, stock update, stock movement, and audit log together.
