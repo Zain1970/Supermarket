@@ -204,6 +204,8 @@ model StockMovement {
   quantity    Decimal           @db.Decimal(14, 3)
   reason      String
   reference   String?
+  idempotencyKey String?
+  requestHash String?
   actorUserId String?
   createdAt   DateTime          @default(now())
   store       Store             @relation(fields: [storeId], references: [id], onDelete: Restrict)
@@ -212,6 +214,7 @@ model StockMovement {
   @@index([storeId, createdAt])
   @@index([storeId, productId, createdAt])
   @@index([reference])
+  @@unique([storeId, idempotencyKey])
 }
 
 model Plan {
