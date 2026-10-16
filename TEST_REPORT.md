@@ -2,28 +2,41 @@
 
 **تاريخ التقرير:** 2026-10-16
 
-## الاختبارات المضافة
+## آخر نتيجة CI مؤكدة
 
-| الفحص | الحالة | الملف |
-|---|---|---|
-| نقطة صحة API وأخطاء 404 | أُضيف ولم يُشغّل محليًا | `apps/api/src/app.test.ts` |
-| رفض المستخدم غير المسجل ومنع الوصول لمتجر آخر | أُضيف ولم يُشغّل محليًا | `apps/api/src/security/access-control.test.ts` |
-| استحقاق الإضافات وحالات الانتهاء | أُضيف ولم يُشغّل محليًا | `apps/api/src/security/addon-entitlement.test.ts` |
-| استجابات middleware لعزل المتاجر | أُضيف ولم يُشغّل محليًا | `apps/api/src/security/store-access-middleware.test.ts` |
-| مصادقة وجلسات حقيقية مع PostgreSQL | غير منفذة كاختبارات تكامل | تحتاج قاعدة بيانات اختبار |
-| Prisma validate/generate | جارٍ التحقق عبر GitHub Actions | [سير CI](https://github.com/Zain1970/Supermarket/actions) |
-| TypeScript build/typecheck والاختبارات | جارٍ التحقق عبر GitHub Actions | [سير CI](https://github.com/Zain1970/Supermarket/actions) |
-| اختبارات عزل المستأجرين في PostgreSQL | غير منفذة | أولوية قبل الإنتاج |
+- **GitHub Actions:** نجاح كامل للتشغيل [#38910363409](https://github.com/Zain1970/Supermarket/actions/runs/38910363409).
+- **Prisma generate:** نجح.
+- **TypeScript typecheck:** نجح.
+- **الاختبارات:** نجحت 15 من 15، دون فشل أو تخطي.
+- **TypeScript build:** نجح.
+- **ملاحظة:** التشغيل الناجح كان عند commit `319a462`. يجب انتظار نتيجة CI على أحدث commit بعد أي تغييرات لاحقة.
 
-## أوامر التحقق محليًا
+## الاختبارات المضافة والمنفذة
+
+| الفحص | النتيجة |
+|---|---|
+| نقطة صحة API وأخطاء 404 | ناجح |
+| رفض المستخدم غير المسجل ومنع الوصول لمتجر آخر | ناجح |
+| استحقاق الإضافات وحالات الانتهاء | ناجح |
+| استجابات middleware لعزل المتاجر | ناجح |
+| Prisma client generation | ناجح |
+| TypeScript typecheck/build | ناجح |
+
+## اختبارات لم تُنفذ بعد
+
+- تسجيل الدخول والخروج مع PostgreSQL حقيقي.
+- انتهاء الجلسة وإبطالها عبر قاعدة البيانات.
+- اختبارات تكامل عزل المستأجرين على PostgreSQL.
+- عمليات المنتجات والمخزون والبيع والمشتريات.
+- اختبارات E2E لتطبيقات الويب والجوال.
+
+## أوامر CI
 
 ```bash
-npm install
-npx prisma validate --schema apps/api/prisma/schema.prisma
 npx prisma generate --schema apps/api/prisma/schema.prisma
 npm run typecheck
 npm test
 npm run build
 ```
 
-لا تعتبر أي نتيجة ناجحة قبل تشغيل الأمر أو رؤية نتيجة CI ناجحة.
+لا تعني نتيجة CI الناجحة أن المنصة جاهزة للإنتاج؛ إنها تثبت فقط نجاح الفحوص المدرجة في هذا المسار.
