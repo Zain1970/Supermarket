@@ -204,8 +204,8 @@ model StockMovement {
   quantity    Decimal           @db.Decimal(14, 3)
   reason      String
   reference   String?
-  idempotencyKey String?
-  requestHash String?
+  idempotencyKey String
+  requestHash String
   actorUserId String?
   createdAt   DateTime          @default(now())
   store       Store             @relation(fields: [storeId], references: [id], onDelete: Restrict)
