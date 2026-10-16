@@ -257,25 +257,12 @@ test("sales return integration tests require PostgreSQL", { skip: !databaseAvail
 
   await t.test("rolls back return, stock, movement and audit when a later transaction step fails", async () => {
     const fixture = await createFixture();
-    let triggerInstalled = false;
+    let constraintInstalled = false;
     try {
-      await prisma.$executeRawUnsafe(`
-        CREATE OR REPLACE FUNCTION fail_sale_return_audit_test() RETURNS trigger
-        LANGUAGE plpgsql AS $
-        BEGIN
-          IF NEW.action = 'SALE_RETURN_CREATED' THEN
-            RAISE EXCEPTION 'intentional sales-return integration test failure';
-          END IF;
-          RETURN NEW;
-        END;
-        $;
-      `);
-      await prisma.$executeRawUnsafe(`
-        CREATE TRIGGER fail_sale_return_audit_test
-        BEFORE INSERT ON "AuditLog"
-        FOR EACH ROW EXECUTE FUNCTION fail_sale_return_audit_test();
-      `);
-      triggerInstalled = true;
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE "AuditLog" ADD CONSTRAINT "fail_sale_return_audit_test" CHECK ("action" <> \'SALE_RETURN_CREATED\')'
+      );
+      constraintInstalled = true;
 
       const response = await submitReturn(fixture, { key: "return-rollback-0001", quantity: "1.000" });
       assert.equal(response.status, 500);
@@ -284,9 +271,8 @@ test("sales return integration tests require PostgreSQL", { skip: !databaseAvail
       assert.equal(await prisma.auditLog.count({ where: { storeId: fixture.storeId, action: "SALE_RETURN_CREATED" } }), 0);
       assert.equal((await prisma.product.findUniqueOrThrow({ where: { id: fixture.productId } })).stockQuantity.toString(), "5");
     } finally {
-      if (triggerInstalled) {
-        await prisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS fail_sale_return_audit_test ON "AuditLog"');
-        await prisma.$executeRawUnsafe("DROP FUNCTION IF EXISTS fail_sale_return_audit_test()");
+      if (constraintInstalled) {
+        await prisma.$executeRawUnsafe('ALTER TABLE "AuditLog" DROP CONSTRAINT IF EXISTS "fail_sale_return_audit_test"');
       }
       await cleanupFixture(fixture);
     }
