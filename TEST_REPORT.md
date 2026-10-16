@@ -7,16 +7,15 @@
 | الفحص | الحالة | الملف |
 |---|---|---|
 | نقطة صحة API وأخطاء 404 | أُضيف ولم يُشغّل محليًا | `apps/api/src/app.test.ts` |
-| رفض المستخدم غير المسجل | أُضيف ولم يُشغّل محليًا | `apps/api/src/security/access-control.test.ts` |
-| منع الوصول لمتجر آخر | أُضيف ولم يُشغّل محليًا | `apps/api/src/security/access-control.test.ts` |
+| رفض المستخدم غير المسجل ومنع الوصول لمتجر آخر | أُضيف ولم يُشغّل محليًا | `apps/api/src/security/access-control.test.ts` |
 | استحقاق الإضافات وحالات الانتهاء | أُضيف ولم يُشغّل محليًا | `apps/api/src/security/addon-entitlement.test.ts` |
 | استجابات middleware لعزل المتاجر | أُضيف ولم يُشغّل محليًا | `apps/api/src/security/store-access-middleware.test.ts` |
-| تسجيل الدخول والجلسات مع قاعدة بيانات | غير منفذ كاختبار تكامل | يتطلب PostgreSQL وبيانات اختبار |
-| TypeScript build/typecheck | لم يُشغّل | يتطلب تثبيت الاعتماديات |
-| Prisma validate/generate/migrate | لم يُشغّل | يتطلب تثبيت الاعتماديات وإعداد قاعدة البيانات للترحيل |
+| مصادقة وجلسات حقيقية مع PostgreSQL | غير منفذة كاختبارات تكامل | تحتاج قاعدة بيانات اختبار |
+| Prisma validate/generate | جارٍ التحقق عبر GitHub Actions | [سير CI](https://github.com/Zain1970/Supermarket/actions) |
+| TypeScript build/typecheck والاختبارات | جارٍ التحقق عبر GitHub Actions | [سير CI](https://github.com/Zain1970/Supermarket/actions) |
 | اختبارات عزل المستأجرين في PostgreSQL | غير منفذة | أولوية قبل الإنتاج |
 
-## أوامر التحقق المقترحة
+## أوامر التحقق محليًا
 
 ```bash
 npm install
