@@ -47,3 +47,10 @@ test("manual payment review API requires authentication", async () => {
   assert.equal(response.status, 401);
   assert.equal(response.body.error.code, "UNAUTHENTICATED");
 });
+
+test("subscription purchase API requires store authentication", async () => {
+  const response = await request(app).get("/stores/store-a/plans");
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error.code, "UNAUTHENTICATED");
+});
