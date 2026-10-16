@@ -1,6 +1,6 @@
 # Sales returns: verification checklist
 
-This checklist is required before merging the sales-return changes or deploying them.
+This checklist is required before merging the sales-return changes or deploying them. Checks marked complete are supported by the successful CI run on commit `4aa9e101230fb9284303046388cee2a671aa8c3a`.
 
 ## Database and Prisma
 
@@ -22,12 +22,13 @@ This checklist is required before merging the sales-return changes or deploying 
 - [x] Reusing an idempotency key with a different payload returns 409.
 - [x] Returning more than the sold quantity, including across concurrent requests, cannot succeed.
 - [x] Any failed return rolls back the return rows, stock update, stock movement, and audit log together.
-- [ ] Retryable serializable transaction conflicts return HTTP 409 with `RETURN_CONCURRENT_MODIFICATION`; the client can safely reload and retry with the same idempotency key.
+- [ ] Add deterministic test coverage for a serializable `P2034` conflict with no committed idempotency winner, asserting HTTP 409 and `RETURN_CONCURRENT_MODIFICATION`. Existing concurrent integration tests pass, but they do not prove this exact error branch deterministically.
 
 ## Financial boundary
 
-- [x] PostgreSQL integration test confirms returns do not change sale total, paid amount, balance due, payment status, or sale-payment row count. The current fixture has no customer credit balance; verify customer receivable invariance separately if customer-linked return fixtures are added.
-- [ ] Do not enable financial settlement until refund ledger entries, discount allocation, customer receivables, and idempotent settlement behavior have been implemented and tested.
+- [x] PostgreSQL integration test confirms returns do not change sale total, paid amount, balance due, payment status, or sale-payment row count.
+- [x] Customer-linked PostgreSQL integration fixture confirms `creditBalance` and `creditLimit` remain unchanged by inventory-only returns.
+- [ ] Do not enable financial settlement until refund ledger entries, discount allocation, customer receivables, and idempotent settlement behavior have been implemented and tested. No refund/payment-refund ledger is created by this endpoint; it remains inventory-only.
 
 ## CI and release gate
 
@@ -35,6 +36,13 @@ This checklist is required before merging the sales-return changes or deploying 
 - [x] API test suite passes.
 - [x] Production build passes.
 - [x] PostgreSQL integration tests pass.
-- [ ] Review the pull request and migration plan before merging.
+- [ ] Human review of the pull request and migration plan before merging.
+- [ ] Inspect the actual target database migration history and schema, and rehearse the approved migration plan on a verified backup/restore or equivalent isolated copy before any production migration.
+- [ ] Resolve outstanding high-severity dependency audit findings and commit a reproducible root `package-lock.json`.
+
+## Latest CI evidence
+
+- [API CI run #38951836578](https://github.com/Zain1970/Supermarket/actions/runs/38951836578) — successful on commit `4aa9e101230fb9284303046388cee2a671aa8c3a`.
+- The successful job completed PostgreSQL fresh-install and upgrade migration checks, Prisma validation and generation, TypeScript typecheck, tests, and build.
 
 No item should be marked complete without an actual command or CI result.
