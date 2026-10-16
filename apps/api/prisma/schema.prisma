@@ -157,11 +157,12 @@ model ProductCategory {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   store     Store     @relation(fields: [storeId], references: [id], onDelete: Restrict)
-  parent    ProductCategory? @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  parent    ProductCategory? @relation("CategoryTree", fields: [storeId, parentId], references: [storeId, id], onDelete: Restrict)
   children  ProductCategory[] @relation("CategoryTree")
   products  Product[]
 
   @@unique([storeId, name])
+  @@unique([storeId, id])
   @@index([storeId, parentId])
 }
 
@@ -183,10 +184,11 @@ model Product {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   store          Store         @relation(fields: [storeId], references: [id], onDelete: Restrict)
-  category       ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  category       ProductCategory? @relation(fields: [storeId, categoryId], references: [storeId, id], onDelete: Restrict)
   stockMovements StockMovement[]
 
   @@unique([storeId, sku])
+  @@unique([storeId, id])
   @@unique([storeId, barcode])
   @@index([storeId, status, name])
   @@index([storeId, categoryId])
@@ -203,7 +205,7 @@ model StockMovement {
   actorUserId String?
   createdAt   DateTime          @default(now())
   store       Store             @relation(fields: [storeId], references: [id], onDelete: Restrict)
-  product     Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  product     Product           @relation(fields: [storeId, productId], references: [storeId, id], onDelete: Restrict)
 
   @@index([storeId, createdAt])
   @@index([storeId, productId, createdAt])
