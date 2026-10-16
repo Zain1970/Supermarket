@@ -318,10 +318,13 @@ model SalePayment {
   amount      Decimal           @db.Decimal(14, 2)
   method      SalePaymentMethod
   reference   String?
-  actorUserId String
-  createdAt   DateTime          @default(now())
-  sale        Sale              @relation(fields: [storeId, saleId], references: [storeId, id], onDelete: Restrict)
+  actorUserId     String
+  idempotencyKey  String
+  requestHash     String
+  createdAt       DateTime          @default(now())
+  sale            Sale              @relation(fields: [storeId, saleId], references: [storeId, id], onDelete: Restrict)
 
+  @@unique([storeId, idempotencyKey])
   @@index([storeId, saleId, createdAt])
 }
 
