@@ -47,6 +47,10 @@ storeRouter.get(
 
       const { q, page, pageSize } = parsedQuery.data;
       const storeId = request.params.storeId;
+      if (!storeId) {
+        response.status(400).json({ error: { code: "STORE_ID_REQUIRED", message: "معرّف المتجر مطلوب." } });
+        return;
+      }
       const where = {
         storeId,
         status: "ACTIVE" as const,
@@ -95,6 +99,10 @@ storeRouter.post(
       }
 
       const storeId = request.params.storeId;
+      if (!storeId) {
+        response.status(400).json({ error: { code: "STORE_ID_REQUIRED", message: "معرّف المتجر مطلوب." } });
+        return;
+      }
       const data = parsed.data;
 
       if (data.categoryId) {
