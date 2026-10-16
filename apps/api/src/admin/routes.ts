@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
+import { periodEnd } from "../billing/period.js";
 import { prisma } from "../lib/prisma.js";
 import { authenticate } from "../auth/auth.js";
 import { requirePlatformAdmin } from "../security/platform-admin.js";
@@ -64,40 +65,70 @@ adminRouter.post("/payments/:paymentId/confirm", async (request, response, next)
       if (!payment) return { kind: "missing" as const };
       if (payment.status !== "PENDING") return { kind: "not_pending" as const };
 
-      if (payment.purpose !== "ADDON") {
-        return { kind: "purpose_unsupported" as const };
-      }
-
-      const grant = await tx.storeAddon.findFirst({
-        where: { id: payment.purposeReference, storeId: payment.storeId },
-        include: { addon: true }
-      });
-      if (!grant || grant.status !== "PENDING_PAYMENT") {
-        return { kind: "grant_invalid" as const };
-      }
-      if (grant.addon.status !== "AVAILABLE") {
-        return { kind: "addon_unavailable" as const };
-      }
-      if (grant.addon.billingCycle === "CUSTOM") {
-        return { kind: "billing_unsupported" as const };
-      }
-
       const now = new Date();
-      const endsAt = periodEnd(now, grant.addon.billingCycle);
+      if (payment.purpose === "ADDON") {
+        const grant = await tx.storeAddon.findFirst({
+          where: { id: payment.purposeReference, storeId: payment.storeId },
+          include: { addon: true }
+        });
+        if (!grant || grant.status !== "PENDING_PAYMENT") return { kind: "grant_invalid" as const };
+        if (grant.addon.status !== "AVAILABLE") return { kind: "addon_unavailable" as const };
+        if (grant.addon.billingCycle === "CUSTOM") return { kind: "billing_unsupported" as const };
+
+        const claimed = await tx.payment.updateMany({
+          where: { id: payment.id, status: "PENDING" },
+          data: { status: "CONFIRMED", confirmedById: request.principal!.userId, confirmedAt: now }
+        });
+        if (claimed.count !== 1) return { kind: "not_pending" as const };
+
+        const activated = await tx.storeAddon.update({
+          where: { id: grant.id },
+          data: {
+            status: "ACTIVE",
+            startsAt: now,
+            endsAt: periodEnd(now, grant.addon.billingCycle),
+            activatedBy: request.principal!.userId,
+            disabledReason: null
+          }
+        });
+
+        await tx.auditLog.create({
+          data: {
+            storeId: payment.storeId,
+            actorUserId: request.principal!.userId,
+            action: "ADDON_PAYMENT_CONFIRMED",
+            entityType: "Payment",
+            entityId: payment.id,
+            reason: "Manual payment approved by platform administrator",
+            metadata: { storeAddonId: grant.id, addonCode: grant.addon.code, amount: payment.amount.toString(), currency: payment.currency }
+          }
+        });
+        return { kind: "confirmed_addon" as const, paymentId: payment.id, storeAddon: activated };
+      }
+
+      const subscription = await tx.subscription.findFirst({
+        where: { id: payment.purposeReference, storeId: payment.storeId },
+        include: { plan: true }
+      });
+      if (!subscription || subscription.status !== "PENDING_PAYMENT") {
+        return { kind: "subscription_invalid" as const };
+      }
+      if (!subscription.plan.isActive) return { kind: "plan_unavailable" as const };
+      if (subscription.plan.billingCycle === "CUSTOM") return { kind: "billing_unsupported" as const };
+
       const claimed = await tx.payment.updateMany({
         where: { id: payment.id, status: "PENDING" },
         data: { status: "CONFIRMED", confirmedById: request.principal!.userId, confirmedAt: now }
       });
       if (claimed.count !== 1) return { kind: "not_pending" as const };
 
-      const activated = await tx.storeAddon.update({
-        where: { id: grant.id },
+      const activated = await tx.subscription.update({
+        where: { id: subscription.id },
         data: {
           status: "ACTIVE",
           startsAt: now,
-          endsAt,
-          activatedBy: request.principal!.userId,
-          disabledReason: null
+          currentPeriodEnd: periodEnd(now, subscription.plan.billingCycle),
+          endedAt: null
         }
       });
 
@@ -105,15 +136,14 @@ adminRouter.post("/payments/:paymentId/confirm", async (request, response, next)
         data: {
           storeId: payment.storeId,
           actorUserId: request.principal!.userId,
-          action: "ADDON_PAYMENT_CONFIRMED",
+          action: "SUBSCRIPTION_PAYMENT_CONFIRMED",
           entityType: "Payment",
           entityId: payment.id,
-          reason: "Manual payment approved by platform administrator",
-          metadata: { storeAddonId: grant.id, addonCode: grant.addon.code, amount: payment.amount.toString(), currency: payment.currency }
+          reason: "Manual subscription payment approved by platform administrator",
+          metadata: { subscriptionId: subscription.id, planCode: subscription.plan.code, amount: payment.amount.toString(), currency: payment.currency }
         }
       });
-
-      return { kind: "confirmed" as const, paymentId: payment.id, storeAddon: activated };
+      return { kind: "confirmed_subscription" as const, paymentId: payment.id, subscription: activated };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     if (result.kind === "missing") {
@@ -124,10 +154,6 @@ adminRouter.post("/payments/:paymentId/confirm", async (request, response, next)
       response.status(409).json({ error: { code: "PAYMENT_ALREADY_PROCESSED", message: "تمت معالجة هذه الدفعة أو لم تعد معلقة." } });
       return;
     }
-    if (result.kind === "purpose_unsupported") {
-      response.status(400).json({ error: { code: "PAYMENT_PURPOSE_UNSUPPORTED", message: "هذا النوع من الدفعات غير مدعوم في مسار التأكيد الحالي." } });
-      return;
-    }
     if (result.kind === "grant_invalid") {
       response.status(409).json({ error: { code: "ADDON_REQUEST_INVALID", message: "طلب تفعيل الإضافة لم يعد صالحًا." } });
       return;
@@ -136,15 +162,32 @@ adminRouter.post("/payments/:paymentId/confirm", async (request, response, next)
       response.status(409).json({ error: { code: "ADDON_UNAVAILABLE", message: "الإضافة لم تعد متاحة." } });
       return;
     }
+    if (result.kind === "subscription_invalid") {
+      response.status(409).json({ error: { code: "SUBSCRIPTION_REQUEST_INVALID", message: "طلب الاشتراك لم يعد صالحًا." } });
+      return;
+    }
+    if (result.kind === "plan_unavailable") {
+      response.status(409).json({ error: { code: "PLAN_UNAVAILABLE", message: "الباقة لم تعد متاحة." } });
+      return;
+    }
     if (result.kind === "billing_unsupported") {
       response.status(400).json({ error: { code: "BILLING_CYCLE_UNSUPPORTED", message: "دورة الفوترة المخصصة غير مهيأة." } });
       return;
     }
 
+    if (result.kind === "confirmed_addon") {
+      response.status(200).json({
+        message: "تم تأكيد الدفعة وتفعيل الإضافة.",
+        paymentId: result.paymentId,
+        storeAddon: result.storeAddon
+      });
+      return;
+    }
+
     response.status(200).json({
-      message: "تم تأكيد الدفعة وتفعيل الإضافة.",
+      message: "تم تأكيد الدفعة وتفعيل الاشتراك.",
       paymentId: result.paymentId,
-      storeAddon: result.storeAddon
+      subscription: result.subscription
     });
   } catch (error) {
     next(error);
