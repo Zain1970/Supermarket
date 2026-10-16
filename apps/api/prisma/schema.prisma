@@ -29,6 +29,24 @@ enum ProductStatus {
   ARCHIVED
 }
 
+enum SaleStatus {
+  COMPLETED
+  VOIDED
+}
+
+enum SalePaymentStatus {
+  PAID
+  PARTIAL
+  UNPAID
+}
+
+enum SalePaymentMethod {
+  CASH
+  CARD
+  TRANSFER
+  CREDIT
+}
+
 enum StockMovementType {
   OPENING
   PURCHASE
