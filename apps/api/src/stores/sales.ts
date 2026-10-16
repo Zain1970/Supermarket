@@ -190,7 +190,14 @@ salesRouter.post("/:storeId/sales", authenticate, requireStoreAccess(undefined, 
           metadata: { invoiceNumber: created.invoiceNumber, totalAmount: total.toFixed(2), itemCount: lines.length }
         }
       });
-      return created;
+      return tx.sale.findUniqueOrThrow({
+        where: { id: created.id },
+        include: {
+          items: { orderBy: { createdAt: "asc" } },
+          payments: { orderBy: { createdAt: "asc" } },
+          customer: { select: { id: true, name: true, phone: true } }
+        }
+      });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     res.status(201).json({ sale });
