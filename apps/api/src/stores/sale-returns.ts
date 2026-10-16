@@ -137,6 +137,28 @@ saleReturnsRouter.post("/:storeId/sales/:saleId/returns", authenticate, requireS
       return;
     }
     if (typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "P2002") {
+      // A simultaneous request may win the unique idempotency-key race after our
+      // preflight lookup. Replay its result when the payload is identical.
+      const storeId = req.params.storeId;
+      const idempotencyKey = req.header("Idempotency-Key")?.trim();
+      const parsed = returnSchema.safeParse(req.body);
+      if (storeId && idempotencyKey && parsed.success) {
+        const requestHash = createHash("sha256")
+          .update(JSON.stringify({ storeId, saleId: req.params.saleId, ...parsed.data }))
+          .digest("hex");
+        const prior = await prisma.saleReturn.findUnique({
+          where: { storeId_idempotencyKey: { storeId, idempotencyKey } },
+          include: { items: true }
+        });
+        if (prior) {
+          if (prior.requestHash !== requestHash) {
+            res.status(409).json({ error: { code: "IDEMPOTENCY_CONFLICT", message: "استُخدم مفتاح المرتجع نفسه لطلب مختلف." } });
+            return;
+          }
+          res.status(200).json({ saleReturn: prior, replayed: true });
+          return;
+        }
+      }
       res.status(409).json({ error: { code: "RETURN_CONFLICT", message: "تعارض أثناء تسجيل المرتجع؛ أعد قراءة الفاتورة قبل المحاولة." } });
       return;
     }
