@@ -102,7 +102,7 @@ saleReturnsRouter.post("/:storeId/sales/:saleId/returns", authenticate, requireS
           data: {
             storeId, productId: item.productId, type: "SALE_RETURN", quantity: qty,
             reason: `Sales return: ${data.reason}`, reference: created.id,
-            idempotencyKey: `sale-return:${created.id}:${item.productId}`, requestHash,
+            idempotencyKey: `sale-return:${created.id}:${item.id}`, requestHash,
             actorUserId: req.principal!.userId
           }
         });
