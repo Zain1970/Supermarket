@@ -311,6 +311,7 @@ model SaleItem {
   product       Product  @relation(fields: [storeId, productId], references: [storeId, id], onDelete: Restrict)
   returnItems   SaleReturnItem[]
 
+  @@unique([storeId, id])
   @@index([storeId, saleId])
   @@index([storeId, productId, createdAt])
 }
