@@ -21,6 +21,8 @@
 - مخطط Prisma للمتاجر والعضويات والتدقيق والمنتجات والمخزون والباقات والاشتراكات والإضافات والمدفوعات والجلسات.
 - API محمي لعرض المنتجات وإنشاءها مع تحقق عضوية المتجر والصلاحيات.
 - API محمي لعرض حركات المخزون وتسجيل تعديلات الكميات بمعاملة Serializable وسجل تدقيق ومفتاح Idempotency.
+- كتالوج إضافات للمتجر وطلب شراء بالدفع اليدوي؛ لا يتم التفعيل عند إنشاء الطلب.
+- واجهة مسؤول المنصة لمراجعة المدفوعات وتأكيد دفعات الإضافات وتفعيلها مع سجل تدقيق.
 - قواعد وصول أولية قابلة للاختبار للتحقق من عضوية المتجر واستحقاق الإضافات.
 - GitHub Actions نجح في تشغيل Prisma generate وTypeScript typecheck والاختبارات والبناء. راجع [تقرير الاختبارات](TEST_REPORT.md) للتشغيل والعدد الدقيق.
 
@@ -65,6 +67,10 @@ unset BOOTSTRAP_ADMIN_PASSWORD
 - `POST /stores/:storeId/products`
 - `GET /stores/:storeId/stock-movements`
 - `POST /stores/:storeId/stock-movements` — يتطلب ترويسة `Idempotency-Key` فريدة لكل عملية.
+- `GET /stores/:storeId/addons`
+- `POST /stores/:storeId/addons/:addonCode/purchase`
+- `GET /admin/payments`
+- `POST /admin/payments/:paymentId/confirm` — لمسؤول المنصة فقط.
 
 واجهات المنتجات والمخزون تتطلب جلسة صالحة وعضوية المتجر المناسبة. لم تُنفذ بعد اختبارات تكامل قاعدة البيانات لهذه العمليات.
 
