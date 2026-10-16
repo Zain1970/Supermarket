@@ -19,3 +19,10 @@ test("unknown API routes return a safe Arabic error", async () => {
   assert.equal(response.body.error.code, "NOT_FOUND");
   assert.match(response.body.error.message, /المسار/);
 });
+
+test("store product API requires authentication", async () => {
+  const response = await request(app).get("/stores/store-a/products");
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error.code, "UNAUTHENTICATED");
+});
