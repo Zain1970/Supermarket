@@ -6,15 +6,15 @@
 
 | الفحص | الحالة | الملف |
 |---|---|---|
-| نقطة صحة API | أُضيف ولم يُشغّل محليًا | `apps/api/src/app.test.ts` |
-| أخطاء المسارات غير الموجودة | أُضيف ولم يُشغّل محليًا | `apps/api/src/app.test.ts` |
+| نقطة صحة API وأخطاء 404 | أُضيف ولم يُشغّل محليًا | `apps/api/src/app.test.ts` |
 | رفض المستخدم غير المسجل | أُضيف ولم يُشغّل محليًا | `apps/api/src/security/access-control.test.ts` |
 | منع الوصول لمتجر آخر | أُضيف ولم يُشغّل محليًا | `apps/api/src/security/access-control.test.ts` |
-| تقييد الأدوار | أُضيف ولم يُشغّل محليًا | `apps/api/src/security/access-control.test.ts` |
-| استحقاق POS/الإضافات وحالات الانتهاء | أُضيف ولم يُشغّل محليًا | `apps/api/src/security/addon-entitlement.test.ts` |
+| استحقاق الإضافات وحالات الانتهاء | أُضيف ولم يُشغّل محليًا | `apps/api/src/security/addon-entitlement.test.ts` |
+| استجابات middleware لعزل المتاجر | أُضيف ولم يُشغّل محليًا | `apps/api/src/security/store-access-middleware.test.ts` |
+| تسجيل الدخول والجلسات مع قاعدة بيانات | غير منفذ كاختبار تكامل | يتطلب PostgreSQL وبيانات اختبار |
 | TypeScript build/typecheck | لم يُشغّل | يتطلب تثبيت الاعتماديات |
 | Prisma validate/generate/migrate | لم يُشغّل | يتطلب تثبيت الاعتماديات وإعداد قاعدة البيانات للترحيل |
-| اختبارات تكامل عزل المستأجرين في PostgreSQL | غير منفذة | أولوية قبل الإنتاج |
+| اختبارات عزل المستأجرين في PostgreSQL | غير منفذة | أولوية قبل الإنتاج |
 
 ## أوامر التحقق المقترحة
 
