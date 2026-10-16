@@ -14,18 +14,16 @@
 
 ## ما هو موجود حاليًا
 
-- نقطة فحص صحة API: `GET /health`.
-- مسارات تسجيل الدخول والخروج والجلسة الحالية.
-- جلسات عشوائية لا يُخزن منها إلا SHA-256 hash، وملف cookie من نوع HttpOnly/SameSite Strict.
-- أمر CLI محدود لإنشاء مسؤول المنصة الأول من متغيرات بيئة، مع قفل قاعدة بيانات لتسلسل محاولات التهيئة.
+- تسجيل الدخول والخروج والجلسة الحالية مع جلسات مخزنة كـ SHA-256 hash وcookie آمن.
+- أمر CLI محدود لإنشاء مسؤول المنصة الأول.
 - مخطط Prisma للمتاجر والعضويات والتدقيق والمنتجات والمخزون والباقات والاشتراكات والإضافات والمدفوعات والجلسات.
-- API محمي لعرض المنتجات وإنشاءها مع تحقق عضوية المتجر والصلاحيات.
-- API محمي لعرض حركات المخزون وتسجيل تعديلات الكميات بمعاملة Serializable وسجل تدقيق ومفتاح Idempotency.
-- كتالوج إضافات للمتجر وطلب شراء بالدفع اليدوي؛ لا يتم التفعيل عند إنشاء الطلب.
-- واجهة مسؤول المنصة لمراجعة المدفوعات وتأكيد دفعات الإضافات أو الاشتراكات وتفعيلها مع سجل تدقيق.
-- كتالوج الباقات، وطلب الاشتراك بالدفع اليدوي، وتجربة مجانية لمرة واحدة لكل متجر عند إعداد الباقة لها.
-- قواعد وصول أولية قابلة للاختبار للتحقق من عضوية المتجر واستحقاق الإضافات.
-- GitHub Actions نجح في تشغيل Prisma generate وTypeScript typecheck والاختبارات والبناء. راجع [تقرير الاختبارات](TEST_REPORT.md) للتشغيل والعدد الدقيق.
+- API محمي لعرض المنتجات وإنشاءها.
+- API محمي لحركات المخزون، بمعاملة Serializable وسجل تدقيق ومفتاح Idempotency ومنع المخزون السالب افتراضيًا.
+- كتالوج الباقات وطلب الاشتراك بالدفع اليدوي وتجربة مجانية لمرة واحدة لكل متجر عند توفرها في الباقة.
+- كتالوج الإضافات وطلب شراء بالدفع اليدوي.
+- واجهات Super Admin لإدارة الباقات والإضافات، ومراجعة المدفوعات وتأكيدها أو رفضها مع تسجيل السبب.
+- تفعيل الاشتراك أو الإضافة بعد تأكيد مسؤول مخوّل فقط، وليس عند إنشاء طلب الدفع.
+- GitHub Actions نجح في Prisma generate وTypeScript typecheck و21 اختبارًا وbuild في [التشغيل #38912015590](https://github.com/Zain1970/Supermarket/actions/runs/38912015590).
 
 ## إعداد البيئة
 
@@ -61,22 +59,20 @@ unset BOOTSTRAP_ADMIN_PASSWORD
 ## واجهات API الحالية
 
 - `GET /health`
-- `POST /auth/login`
-- `GET /auth/me`
-- `POST /auth/logout`
-- `GET /stores/:storeId/products`
-- `POST /stores/:storeId/products`
-- `GET /stores/:storeId/stock-movements`
-- `POST /stores/:storeId/stock-movements` — يتطلب ترويسة `Idempotency-Key` فريدة لكل عملية.
-- `GET /stores/:storeId/addons`
+- `POST /auth/login` · `GET /auth/me` · `POST /auth/logout`
+- `GET /stores/:storeId/products` · `POST /stores/:storeId/products`
+- `GET /stores/:storeId/stock-movements` · `POST /stores/:storeId/stock-movements`
 - `GET /stores/:storeId/plans`
 - `POST /stores/:storeId/subscription/purchase`
 - `POST /stores/:storeId/subscription/trial`
+- `GET /stores/:storeId/addons`
 - `POST /stores/:storeId/addons/:addonCode/purchase`
+- `GET /admin/plans` · `POST /admin/plans` · `PATCH /admin/plans/:planId`
+- `GET /admin/addons` · `POST /admin/addons` · `PATCH /admin/addons/:addonId`
 - `GET /admin/payments`
-- `POST /admin/payments/:paymentId/confirm` — لمسؤول المنصة فقط، لتفعيل الاشتراك أو الإضافة بعد مراجعة الدفع.
+- `POST /admin/payments/:paymentId/confirm` · `POST /admin/payments/:paymentId/reject`
 
-واجهات المنتجات والمخزون تتطلب جلسة صالحة وعضوية المتجر المناسبة. لم تُنفذ بعد اختبارات تكامل قاعدة البيانات لهذه العمليات.
+واجهات المتاجر تتطلب جلسة صالحة وعضوية مناسبة. عمليات المخزون تتطلب ترويسة `Idempotency-Key`. راجع [عقد OpenAPI](docs/openapi.yaml).
 
 ## التحقق
 
@@ -85,8 +81,6 @@ npm run typecheck
 npm test
 npm run build
 ```
-
-النتائج الفعلية تُسجّل في [تقرير الاختبارات](TEST_REPORT.md) وحالة [GitHub Actions](https://github.com/Zain1970/Supermarket/actions).
 
 ## وثائق المشروع
 
@@ -102,10 +96,10 @@ npm run build
 - [العوائق والقرارات](CODEX_BLOCKERS.md)
 - [مراجعة UX](UX_REVIEW.md)
 - [سجل التغييرات](CHANGELOG.md)
-- [عقد OpenAPI الأولي](docs/openapi.yaml)
 
 ## تحذيرات مهمة
 
-- لم تُنفذ بعد إدارة المتاجر والأعضاء، المشتريات والمبيعات وPOS والاشتراكات والإضافات عبر واجهات مكتملة.
+- لا توجد حتى الآن واجهات React أو React Native.
 - لم تُختبر عمليات قاعدة البيانات التجارية على PostgreSQL باختبارات تكامل.
-- لا تستخدم المشروع مع بيانات حقيقية أو في الإنتاج قبل إكمال الاختبارات الأمنية والتشغيلية.
+- لم تُنفذ المبيعات والمشتريات وPOS أو التحليلات الذكية.
+- لا تستخدم المشروع في الإنتاج قبل إكمال اختبارات التكامل والأمن والتشغيل.
