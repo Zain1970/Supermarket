@@ -57,6 +57,81 @@ paths:
       responses:
         "204": { description: تم إبطال الجلسة }
         "401": { description: جلسة غير صالحة }
+  /stores/{storeId}/members:
+    parameters:
+      - in: path
+        name: storeId
+        required: true
+        schema: { type: string }
+    get:
+      summary: عرض أعضاء المتجر
+      description: متاح لمالك المتجر ومديره؛ يعرض بيانات أساسية فقط.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { description: قائمة الأعضاء وأدوارهم }
+        "401": { description: يلزم تسجيل الدخول }
+        "403": { description: لا توجد صلاحية لإدارة أعضاء المتجر }
+    post:
+      summary: إضافة مستخدم موجود إلى المتجر
+      description: مالك المتجر فقط. لا ينشئ هذا المسار حسابات مستخدمين أو يمنح دور المالك.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, role]
+              properties:
+                email: { type: string, format: email }
+                role: { type: string, enum: [STORE_MANAGER, CASHIER, INVENTORY_STAFF, PURCHASING_STAFF] }
+      responses:
+        "201": { description: تمت إضافة العضوية وتسجيل حدث التدقيق }
+        "400": { description: بيانات العضوية غير صالحة }
+        "401": { description: يلزم تسجيل الدخول }
+        "403": { description: يلزم مالك المتجر }
+        "404": { description: المستخدم النشط غير موجود }
+        "409": { description: المستخدم عضو بالفعل }
+  /stores/{storeId}/members/{membershipId}:
+    parameters:
+      - in: path
+        name: storeId
+        required: true
+        schema: { type: string }
+      - in: path
+        name: membershipId
+        required: true
+        schema: { type: string }
+    patch:
+      summary: تغيير دور عضو
+      description: مالك المتجر فقط؛ لا يمكن تعديل دور المالك بهذا المسار.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role: { type: string, enum: [STORE_MANAGER, CASHIER, INVENTORY_STAFF, PURCHASING_STAFF] }
+      responses:
+        "200": { description: تم تحديث الدور وتسجيل حدث التدقيق }
+        "400": { description: الدور غير صالح }
+        "401": { description: يلزم تسجيل الدخول }
+        "403": { description: يلزم مالك المتجر }
+        "404": { description: العضوية غير موجودة }
+        "409": { description: دور المالك محمي }
+    delete:
+      summary: إزالة عضو من المتجر
+      description: مالك المتجر فقط؛ لا يمكن إزالة عضوية المالك بهذا المسار.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "204": { description: تمت إزالة العضوية وتسجيل حدث التدقيق }
+        "401": { description: يلزم تسجيل الدخول }
+        "403": { description: يلزم مالك المتجر }
+        "404": { description: العضوية غير موجودة }
+        "409": { description: دور المالك محمي }
   /stores/{storeId}/products:
     parameters:
       - in: path
