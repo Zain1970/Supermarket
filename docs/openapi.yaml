@@ -1,0 +1,61 @@
+openapi: 3.1.0
+info:
+  title: Supermarket Platform API
+  version: 0.1.0
+  description: |
+    عقد أولي لواجهة المنصة. لا يعني وجود المسار في هذا الملف أن جميع وحدات المنتج
+    منفذة. يجب أن تعتمد واجهات المتاجر على جلسة موثوقة وصلاحيات الخادم.
+servers:
+  - url: http://localhost:4000
+paths:
+  /health:
+    get:
+      summary: فحص صحة واجهة API
+      operationId: getHealth
+      responses:
+        "200":
+          description: الخادم يعمل
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, service, stage]
+                properties:
+                  status:
+                    type: string
+                    const: ok
+                  service:
+                    type: string
+                    const: supermarket-api
+                  stage:
+                    type: string
+                    const: foundation
+  /api/stores/{storeId}/products:
+    get:
+      summary: عقد مستقبلي لعرض منتجات متجر
+      description: |
+        غير منفذ حاليًا. يجب التحقق من جلسة المستخدم وعضويته في المتجر داخل الخادم.
+        لا يكفي تمرير storeId أو إخفاء الواجهة في العميل.
+      parameters:
+        - in: path
+          name: storeId
+          required: true
+          schema:
+            type: string
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: المنتجات المسموح بها بعد تنفيذ المسار
+        "401":
+          description: غير مسجل الدخول
+        "403":
+          description: لا توجد صلاحية للوصول إلى المتجر
+        "501":
+          description: المسار موثق للتخطيط لكنه غير منفذ
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
