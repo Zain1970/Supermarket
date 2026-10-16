@@ -7,12 +7,16 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/api-ci.yml"
+      - "docs/SALE_RETURNS_QA.md"
+      - "docs/PRISMA_MIGRATION_BASELINE.md"
   pull_request:
     paths:
       - "apps/api/**"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/api-ci.yml"
+      - "docs/SALE_RETURNS_QA.md"
+      - "docs/PRISMA_MIGRATION_BASELINE.md"
   workflow_dispatch:
 
 permissions:
