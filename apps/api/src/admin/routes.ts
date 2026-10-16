@@ -14,17 +14,6 @@ const paymentListSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(25)
 });
 
-function periodEnd(start: Date, cycle: "MONTHLY" | "QUARTERLY" | "YEARLY"): Date {
-  const months = cycle === "MONTHLY" ? 1 : cycle === "QUARTERLY" ? 3 : 12;
-  const end = new Date(start);
-  const day = end.getUTCDate();
-  end.setUTCDate(1);
-  end.setUTCMonth(end.getUTCMonth() + months);
-  const lastDay = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0)).getUTCDate();
-  end.setUTCDate(Math.min(day, lastDay));
-  return end;
-}
-
 adminRouter.use(authenticate, requirePlatformAdmin);
 
 adminRouter.get("/payments", async (request, response, next) => {
