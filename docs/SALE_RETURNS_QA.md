@@ -20,7 +20,7 @@ This checklist is required before merging the sales-return changes or deploying 
 - [ ] Reusing an idempotency key with a different payload returns 409.
 - [ ] Returning more than the sold quantity, including across concurrent requests, cannot succeed.
 - [ ] Any failed return rolls back the return rows, stock update, stock movement, and audit log together.
-- [ ] Retryable serializable transaction conflicts return a safe conflict response or are retried with a bounded policy.
+- [ ] Retryable serializable transaction conflicts return HTTP 409 with `RETURN_CONCURRENT_MODIFICATION`; the client can safely reload and retry with the same idempotency key.
 
 ## Financial boundary
 
