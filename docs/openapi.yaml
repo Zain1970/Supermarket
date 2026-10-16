@@ -192,6 +192,68 @@ paths:
         "401": { description: يلزم تسجيل الدخول }
         "403": { description: يلزم دور مالك المتجر أو مديره }
         "409": { description: الإضافة مفعّلة بالفعل }
+  /stores/{storeId}/plans:
+    get:
+      summary: عرض الباقات والاشتراكات الحالية
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: path
+          name: storeId
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: الباقات النشطة وآخر اشتراكات المتجر }
+        "401": { description: يلزم تسجيل الدخول }
+        "403": { description: يلزم دور مالك المتجر أو مديره }
+  /stores/{storeId}/subscription/purchase:
+    post:
+      summary: طلب اشتراك بالدفع اليدوي
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: path
+          name: storeId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planCode, method]
+              properties:
+                planCode: { type: string }
+                method: { type: string, enum: [CASH, BANK_TRANSFER, OTHER] }
+                note: { type: string, maxLength: 1000 }
+      responses:
+        "201": { description: طلب دفع اشتراك ينتظر المراجعة }
+        "401": { description: يلزم تسجيل الدخول }
+        "403": { description: يلزم دور مالك المتجر أو مديره }
+        "409": { description: يوجد اشتراك نشط أو طلب معلق }
+  /stores/{storeId}/subscription/trial:
+    post:
+      summary: بدء تجربة مجانية لمرة واحدة
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: path
+          name: storeId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planCode]
+              properties:
+                planCode: { type: string }
+      responses:
+        "201": { description: بدأت التجربة المجانية }
+        "400": { description: الباقة لا توفر تجربة مجانية }
+        "401": { description: يلزم تسجيل الدخول }
+        "403": { description: يلزم دور مالك المتجر أو مديره }
+        "409": { description: التجربة سبق استخدامها أو يوجد اشتراك قائم }
   /admin/payments:
     get:
       summary: قائمة المدفوعات لمراجعة مسؤول المنصة
@@ -212,7 +274,7 @@ paths:
         "403": { description: يلزم مسؤول المنصة }
   /admin/payments/{paymentId}/confirm:
     post:
-      summary: تأكيد دفع إضافة وتفعيلها
+      summary: تأكيد دفع اشتراك أو إضافة وتفعيل الخدمة
       security: [{ sessionCookie: [] }]
       parameters:
         - in: path
@@ -220,7 +282,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        "200": { description: تم تأكيد الدفعة وتفعيل الإضافة }
+        "200": { description: تم تأكيد الدفعة وتفعيل الإضافة أو الاشتراك }
         "401": { description: يلزم تسجيل الدخول }
         "403": { description: يلزم مسؤول المنصة }
         "409": { description: الدفعة أو طلب التفعيل لم يعد صالحًا }
