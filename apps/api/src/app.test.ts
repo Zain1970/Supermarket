@@ -27,6 +27,23 @@ test("store product API requires authentication", async () => {
   assert.equal(response.body.error.code, "UNAUTHENTICATED");
 });
 
+test("store member list requires authentication", async () => {
+  const response = await request(app).get("/stores/store-a/members");
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error.code, "UNAUTHENTICATED");
+});
+
+test("store member creation requires authentication", async () => {
+  const response = await request(app).post("/stores/store-a/members").send({
+    email: "cashier@example.com",
+    role: "CASHIER"
+  });
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error.code, "UNAUTHENTICATED");
+});
+
 test("stock movement API requires authentication", async () => {
   const response = await request(app).get("/stores/store-a/stock-movements");
 
