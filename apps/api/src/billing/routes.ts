@@ -143,3 +143,89 @@ billingRouter.post(
     }
   }
 );
+
+billingRouter.post(
+  "/:storeId/subscription/trial",
+  authenticate,
+  requireStoreAccess(undefined, storeRoles),
+  async (request, response, next) => {
+    try {
+      const storeId = request.params.storeId;
+      const parsed = z.object({ planCode: z.string().trim().min(1).max(80) }).safeParse(request.body);
+      if (!storeId) {
+        response.status(400).json({ error: { code: "STORE_ID_REQUIRED", message: "معرّف المتجر مطلوب." } });
+        return;
+      }
+      if (!parsed.success) {
+        response.status(400).json({ error: { code: "INVALID_TRIAL_REQUEST", message: "حدد الباقة المطلوبة للتجربة." } });
+        return;
+      }
+
+      const plan = await prisma.plan.findFirst({
+        where: { code: parsed.data.planCode, isActive: true }
+      });
+      if (!plan) {
+        response.status(404).json({ error: { code: "PLAN_UNAVAILABLE", message: "الباقة غير موجودة أو غير متاحة." } });
+        return;
+      }
+      if (plan.trialDays < 1) {
+        response.status(400).json({ error: { code: "TRIAL_NOT_AVAILABLE", message: "لا توفر هذه الباقة تجربة مجانية." } });
+        return;
+      }
+
+      const result = await prisma.$transaction(async (tx) => {
+        const priorTrial = await tx.subscription.findFirst({
+          where: { storeId, trialEndsAt: { not: null } },
+          select: { id: true }
+        });
+        if (priorTrial) return { kind: "trial_used" as const };
+
+        const existing = await tx.subscription.findFirst({
+          where: { storeId, status: { in: ["ACTIVE", "TRIALING", "PENDING_PAYMENT"] } },
+          select: { id: true }
+        });
+        if (existing) return { kind: "subscription_exists" as const };
+
+        const now = new Date();
+        const trialEndsAt = new Date(now.getTime() + plan.trialDays * 24 * 60 * 60 * 1000);
+        const subscription = await tx.subscription.create({
+          data: {
+            storeId,
+            planId: plan.id,
+            status: "TRIALING",
+            startsAt: now,
+            trialEndsAt,
+            currentPeriodEnd: trialEndsAt
+          }
+        });
+        await tx.auditLog.create({
+          data: {
+            storeId,
+            actorUserId: request.principal!.userId,
+            action: "SUBSCRIPTION_TRIAL_STARTED",
+            entityType: "Subscription",
+            entityId: subscription.id,
+            metadata: { planCode: plan.code, trialDays: plan.trialDays }
+          }
+        });
+        return { kind: "created" as const, subscription };
+      }, { isolationLevel: "Serializable" });
+
+      if (result.kind === "trial_used") {
+        response.status(409).json({ error: { code: "TRIAL_ALREADY_USED", message: "سبق استخدام التجربة المجانية لهذا المتجر." } });
+        return;
+      }
+      if (result.kind === "subscription_exists") {
+        response.status(409).json({ error: { code: "SUBSCRIPTION_EXISTS", message: "لدى المتجر اشتراك أو طلب اشتراك قائم." } });
+        return;
+      }
+
+      response.status(201).json({
+        message: "بدأت التجربة المجانية.",
+        subscription: result.subscription
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
