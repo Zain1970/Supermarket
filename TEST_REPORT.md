@@ -4,7 +4,7 @@
 
 ## آخر نتيجة CI مؤكدة
 
-- **GitHub Actions:** نجاح كامل للتشغيل [#38911126652](https://github.com/Zain1970/Supermarket/actions/runs/38911126652).
+- **GitHub Actions:** نجاح كامل للتشغيل [#38911221435](https://github.com/Zain1970/Supermarket/actions/runs/38911221435).
 - **Prisma client generation:** نجح.
 - **TypeScript typecheck:** نجح.
 - **الاختبارات:** نجحت 19 من 19، دون فشل أو تخطٍ.
