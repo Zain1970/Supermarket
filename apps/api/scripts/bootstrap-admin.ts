@@ -17,33 +17,37 @@ async function main() {
   }
 
   const email = parsed.data.BOOTSTRAP_ADMIN_EMAIL.toLowerCase();
-  const existingAdmin = await prisma.user.findFirst({
-    where: { isPlatformAdmin: true },
-    select: { id: true }
-  });
-
-  if (existingAdmin) {
-    throw new Error("A platform administrator already exists. Bootstrap is disabled.");
-  }
-
-  const existingUser = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true }
-  });
-
-  if (existingUser) {
-    throw new Error("This email already exists. Use the approved account recovery process.");
-  }
-
   const passwordHash = await hash(parsed.data.BOOTSTRAP_ADMIN_PASSWORD, 12);
-  const admin = await prisma.user.create({
-    data: {
-      email,
-      displayName: parsed.data.BOOTSTRAP_ADMIN_NAME,
-      passwordHash,
-      isPlatformAdmin: true
-    },
-    select: { id: true, email: true }
+
+  const admin = await prisma.$transaction(async (tx) => {
+    // Serialize bootstrap attempts so two concurrent runs cannot both create an initial admin.
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(4815162342::bigint)`;
+
+    const existingAdmin = await tx.user.findFirst({
+      where: { isPlatformAdmin: true },
+      select: { id: true }
+    });
+    if (existingAdmin) {
+      throw new Error("A platform administrator already exists. Bootstrap is disabled.");
+    }
+
+    const existingUser = await tx.user.findUnique({
+      where: { email },
+      select: { id: true }
+    });
+    if (existingUser) {
+      throw new Error("This email already exists. Use the approved account recovery process.");
+    }
+
+    return tx.user.create({
+      data: {
+        email,
+        displayName: parsed.data.BOOTSTRAP_ADMIN_NAME,
+        passwordHash,
+        isPlatformAdmin: true
+      },
+      select: { id: true, email: true }
+    });
   });
 
   console.log(`Created initial platform administrator: ${admin.email} (id: ${admin.id})`);
