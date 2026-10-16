@@ -26,7 +26,7 @@ This checklist is required before merging the sales-return changes or deploying 
 
 ## Financial boundary
 
-- [ ] Confirm that current return behavior is inventory-only and does not refund cash, edit sale payments, or change customer credit balances.
+- [x] PostgreSQL integration test confirms returns do not change sale total, paid amount, balance due, payment status, or sale-payment row count. The current fixture has no customer credit balance; verify customer receivable invariance separately if customer-linked return fixtures are added.
 - [ ] Do not enable financial settlement until refund ledger entries, discount allocation, customer receivables, and idempotent settlement behavior have been implemented and tested.
 
 ## CI and release gate
