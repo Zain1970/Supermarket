@@ -90,9 +90,14 @@ jobs:
 
           writeFileSync("apps/api/prisma/schema.pre-returns.prisma", output.join("\n"));
           NODE
-      - name: Create base schema in PostgreSQL
-        run: npx prisma db push --schema apps/api/prisma/schema.pre-returns.prisma
-      - name: Apply sales-return migrations to PostgreSQL
+      - name: Generate baseline migration for existing schema
+        run: |
+          mkdir -p apps/api/prisma/migrations/20261016160000_ci_baseline
+          npx prisma migrate diff \
+            --from-empty \
+            --to-schema-datamodel apps/api/prisma/schema.pre-returns.prisma \
+            --script > apps/api/prisma/migrations/20261016160000_ci_baseline/migration.sql
+      - name: Apply baseline and sales-return migrations to PostgreSQL
         run: npx prisma migrate deploy --schema apps/api/prisma/schema.prisma
       - name: Generate Prisma client
         run: npx prisma generate --schema apps/api/prisma/schema.prisma
