@@ -24,17 +24,82 @@ enum StoreStatus {
   ARCHIVED
 }
 
+enum ProductStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum StockMovementType {
+  OPENING
+  PURCHASE
+  SALE
+  SALE_RETURN
+  PURCHASE_RETURN
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  DAMAGED
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  PENDING_PAYMENT
+  ACTIVE
+  PAST_DUE
+  EXPIRED
+  CANCELLED
+  SUSPENDED
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}
+
+enum AddonStatus {
+  DRAFT
+  AVAILABLE
+  RETIRED
+}
+
+enum StoreAddonStatus {
+  PENDING_PAYMENT
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  REFUNDED
+}
+
+enum PaymentPurpose {
+  SUBSCRIPTION
+  ADDON
+}
+
 model Store {
-  id          String            @id @default(cuid())
-  name        String
-  slug        String            @unique
-  status      StoreStatus       @default(PENDING)
-  timezone    String            @default("Asia/Aden")
-  currency    String            @default("YER")
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  memberships StoreMembership[]
-  auditLogs   AuditLog[]
+  id            String            @id @default(cuid())
+  name          String
+  slug          String            @unique
+  status        StoreStatus       @default(PENDING)
+  timezone      String            @default("Asia/Aden")
+  currency      String            @default("YER")
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  memberships   StoreMembership[]
+  auditLogs     AuditLog[]
+  categories    ProductCategory[]
+  products      Product[]
+  stockMovements StockMovement[]
+  subscriptions Subscription[]
+  storeAddons   StoreAddon[]
+  payments      Payment[]
 
   @@index([status, createdAt])
 }
@@ -49,6 +114,7 @@ model User {
   updatedAt    DateTime          @updatedAt
   memberships  StoreMembership[]
   auditLogs    AuditLog[]        @relation("AuditActor")
+  confirmedPayments Payment[]    @relation("PaymentConfirmer")
 }
 
 model StoreMembership {
@@ -81,4 +147,161 @@ model AuditLog {
   @@index([storeId, createdAt])
   @@index([actorUserId, createdAt])
   @@index([entityType, entityId])
+}
+
+model ProductCategory {
+  id        String    @id @default(cuid())
+  storeId   String
+  name      String
+  parentId  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  store     Store     @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  parent    ProductCategory? @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children  ProductCategory[] @relation("CategoryTree")
+  products  Product[]
+
+  @@unique([storeId, name])
+  @@index([storeId, parentId])
+}
+
+model Product {
+  id             String        @id @default(cuid())
+  storeId        String
+  categoryId     String?
+  sku            String
+  barcode        String?
+  name           String
+  description    String?
+  unit           String        @default("piece")
+  costPrice      Decimal?      @db.Decimal(14, 2)
+  salePrice      Decimal       @db.Decimal(14, 2)
+  stockQuantity  Decimal       @default(0) @db.Decimal(14, 3)
+  lowStockAt     Decimal       @default(0) @db.Decimal(14, 3)
+  allowNegativeStock Boolean   @default(false)
+  status         ProductStatus @default(ACTIVE)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  store          Store         @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  category       ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  stockMovements StockMovement[]
+
+  @@unique([storeId, sku])
+  @@unique([storeId, barcode])
+  @@index([storeId, status, name])
+  @@index([storeId, categoryId])
+}
+
+model StockMovement {
+  id          String            @id @default(cuid())
+  storeId     String
+  productId   String
+  type        StockMovementType
+  quantity    Decimal           @db.Decimal(14, 3)
+  reason      String
+  reference   String?
+  actorUserId String?
+  createdAt   DateTime          @default(now())
+  store       Store             @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  product     Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([storeId, createdAt])
+  @@index([storeId, productId, createdAt])
+  @@index([reference])
+}
+
+model Plan {
+  id             String         @id @default(cuid())
+  code           String         @unique
+  name            String
+  description     String?
+  price           Decimal        @db.Decimal(14, 2)
+  currency        String         @default("YER")
+  billingCycle    BillingCycle   @default(MONTHLY)
+  trialDays       Int            @default(0)
+  limits          Json?
+  features        Json?
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  subscriptions   Subscription[]
+}
+
+model Subscription {
+  id            String             @id @default(cuid())
+  storeId       String
+  planId        String
+  status        SubscriptionStatus @default(TRIALING)
+  startsAt      DateTime           @default(now())
+  trialEndsAt   DateTime?
+  currentPeriodEnd DateTime?
+  endedAt       DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  store         Store              @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  plan          Plan               @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([storeId, status])
+  @@index([status, currentPeriodEnd])
+}
+
+model Addon {
+  id                String      @id @default(cuid())
+  code              String      @unique
+  name              String
+  description       String?
+  version           String      @default("1.0.0")
+  status            AddonStatus @default(DRAFT)
+  price             Decimal     @db.Decimal(14, 2)
+  currency          String      @default("YER")
+  billingCycle      BillingCycle @default(MONTHLY)
+  minimumPlanCode   String?
+  configSchema      Json?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  storeAddons       StoreAddon[]
+
+  @@index([status, code])
+}
+
+model StoreAddon {
+  id          String           @id @default(cuid())
+  storeId     String
+  addonId     String
+  status      StoreAddonStatus @default(PENDING_PAYMENT)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  config      Json?
+  activatedBy String?
+  disabledReason String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  store       Store            @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  addon       Addon            @relation(fields: [addonId], references: [id], onDelete: Restrict)
+
+  @@unique([storeId, addonId])
+  @@index([storeId, status])
+  @@index([addonId, status])
+}
+
+model Payment {
+  id               String         @id @default(cuid())
+  storeId          String
+  purpose          PaymentPurpose
+  purposeReference String
+  amount           Decimal        @db.Decimal(14, 2)
+  currency         String         @default("YER")
+  status           PaymentStatus  @default(PENDING)
+  method           String
+  proofUrl         String?
+  note             String?
+  confirmedById    String?
+  confirmedAt      DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  store            Store          @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  confirmedBy      User?          @relation("PaymentConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull)
+
+  @@index([storeId, status, createdAt])
+  @@index([purpose, purposeReference])
 }
