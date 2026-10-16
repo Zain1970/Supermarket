@@ -123,3 +123,10 @@ test("daily report API requires store authentication", async () => {
   assert.equal(response.status, 401);
   assert.equal(response.body.error.code, "UNAUTHENTICATED");
 });
+
+test("low-stock report API requires store authentication", async () => {
+  const response = await request(app).get("/stores/store-a/reports/low-stock");
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error.code, "UNAUTHENTICATED");
+});
