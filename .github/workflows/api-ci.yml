@@ -97,8 +97,28 @@ jobs:
             --from-empty \
             --to-schema-datamodel apps/api/prisma/schema.pre-returns.prisma \
             --script > apps/api/prisma/migrations/20261016160000_ci_baseline/migration.sql
+      - name: Preserve generated baseline SQL for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-baseline-migration
+          path: apps/api/prisma/migrations/20261016160000_ci_baseline/migration.sql
+          if-no-files-found: error
       - name: Apply baseline and sales-return migrations to PostgreSQL
         run: npx prisma migrate deploy --schema apps/api/prisma/schema.prisma
+      - name: Verify upgrade from database with original sales-return migration applied
+        env:
+          PGPASSWORD: postgres
+        run: |
+          mkdir -p apps/api/prisma-upgrade/migrations
+          cp apps/api/prisma/schema.prisma apps/api/prisma-upgrade/schema.prisma
+          cp apps/api/prisma/migrations/migration_lock.toml apps/api/prisma-upgrade/migrations/
+          cp -R apps/api/prisma/migrations/20261016160000_ci_baseline apps/api/prisma-upgrade/migrations/
+          cp -R apps/api/prisma/migrations/20261016170000_sales_returns apps/api/prisma-upgrade/migrations/
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "CREATE SCHEMA upgrade_test"
+          DATABASE_URL="postgresql://postgres:postgres@localhost:5432/supermarket_test?schema=upgrade_test" npx prisma migrate deploy --schema apps/api/prisma-upgrade/schema.prisma
+          cp -R apps/api/prisma/migrations/20261016183000_tenant_scoped_sale_return_relations apps/api/prisma-upgrade/migrations/
+          cp -R apps/api/prisma/migrations/20261016193000_sale_return_composite_foreign_keys apps/api/prisma-upgrade/migrations/
+          DATABASE_URL="postgresql://postgres:postgres@localhost:5432/supermarket_test?schema=upgrade_test" npx prisma migrate deploy --schema apps/api/prisma-upgrade/schema.prisma
       - name: Generate Prisma client
         run: npx prisma generate --schema apps/api/prisma/schema.prisma
       - name: Typecheck
