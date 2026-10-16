@@ -149,12 +149,15 @@ salesRouter.post("/:storeId/sales", authenticate, requireStoreAccess(undefined, 
             storeId, productId: product.id, productName: product.name, sku: product.sku,
             quantity: qty, unitPrice: product.salePrice, unitCost: product.costPrice, lineTotal
           })) },
-          ...(paid.greaterThan(0) ? { payments: { create: {
-            storeId, amount: paid, method: data.paymentMethod, actorUserId: req.principal!.userId
-          } } } : {})
         },
         include: { items: true, payments: true, customer: { select: { id: true, name: true, phone: true } } }
       });
+
+      if (paid.greaterThan(0)) {
+        await tx.salePayment.create({
+          data: { storeId, saleId: created.id, amount: paid, method: data.paymentMethod, actorUserId: req.principal!.userId }
+        });
+      }
 
       for (const { product, qty } of lines) {
         const updated = await tx.product.updateMany({
