@@ -1,0 +1,19 @@
+{
+  "name": "supermarket-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Arabic-first multi-tenant supermarket SaaS platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace @supermarket/api",
+    "build": "npm run build --workspace @supermarket/api",
+    "test": "npm run test --workspace @supermarket/api",
+    "typecheck": "npm run typecheck --workspace @supermarket/api"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
