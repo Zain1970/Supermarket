@@ -22,7 +22,8 @@
 - API محمي لعرض المنتجات وإنشاءها مع تحقق عضوية المتجر والصلاحيات.
 - API محمي لعرض حركات المخزون وتسجيل تعديلات الكميات بمعاملة Serializable وسجل تدقيق ومفتاح Idempotency.
 - كتالوج إضافات للمتجر وطلب شراء بالدفع اليدوي؛ لا يتم التفعيل عند إنشاء الطلب.
-- واجهة مسؤول المنصة لمراجعة المدفوعات وتأكيد دفعات الإضافات وتفعيلها مع سجل تدقيق.
+- واجهة مسؤول المنصة لمراجعة المدفوعات وتأكيد دفعات الإضافات أو الاشتراكات وتفعيلها مع سجل تدقيق.
+- كتالوج الباقات، وطلب الاشتراك بالدفع اليدوي، وتجربة مجانية لمرة واحدة لكل متجر عند إعداد الباقة لها.
 - قواعد وصول أولية قابلة للاختبار للتحقق من عضوية المتجر واستحقاق الإضافات.
 - GitHub Actions نجح في تشغيل Prisma generate وTypeScript typecheck والاختبارات والبناء. راجع [تقرير الاختبارات](TEST_REPORT.md) للتشغيل والعدد الدقيق.
 
@@ -68,9 +69,12 @@ unset BOOTSTRAP_ADMIN_PASSWORD
 - `GET /stores/:storeId/stock-movements`
 - `POST /stores/:storeId/stock-movements` — يتطلب ترويسة `Idempotency-Key` فريدة لكل عملية.
 - `GET /stores/:storeId/addons`
+- `GET /stores/:storeId/plans`
+- `POST /stores/:storeId/subscription/purchase`
+- `POST /stores/:storeId/subscription/trial`
 - `POST /stores/:storeId/addons/:addonCode/purchase`
 - `GET /admin/payments`
-- `POST /admin/payments/:paymentId/confirm` — لمسؤول المنصة فقط.
+- `POST /admin/payments/:paymentId/confirm` — لمسؤول المنصة فقط، لتفعيل الاشتراك أو الإضافة بعد مراجعة الدفع.
 
 واجهات المنتجات والمخزون تتطلب جلسة صالحة وعضوية المتجر المناسبة. لم تُنفذ بعد اختبارات تكامل قاعدة البيانات لهذه العمليات.
 
