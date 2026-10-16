@@ -14,6 +14,7 @@ type Fixture = {
   saleId: string;
   saleItemId: string;
   productId: string;
+  customerId: string;
   token: string;
 };
 
@@ -49,9 +50,18 @@ async function createFixture(options: { role?: "STORE_OWNER" | "STORE_MANAGER" |
       stockQuantity: "5.000"
     }
   });
+  const customer = await prisma.customer.create({
+    data: {
+      storeId: store.id,
+      name: `Returns customer ${suffix}`,
+      creditLimit: "100.00",
+      creditBalance: "25.00"
+    }
+  });
   const sale = await prisma.sale.create({
     data: {
       storeId: store.id,
+      customerId: customer.id,
       invoiceNumber: `INV-${suffix}`,
       subtotal: "20.00",
       totalAmount: "20.00",
@@ -79,6 +89,7 @@ async function createFixture(options: { role?: "STORE_OWNER" | "STORE_MANAGER" |
     saleId: sale.id,
     saleItemId: saleItem.id,
     productId: product.id,
+    customerId: customer.id,
     token
   };
 }
@@ -92,6 +103,7 @@ async function cleanupFixture(fixture: Fixture): Promise<void> {
     await tx.salePayment.deleteMany({ where: { storeId: fixture.storeId } });
     await tx.saleItem.deleteMany({ where: { storeId: fixture.storeId } });
     await tx.sale.deleteMany({ where: { storeId: fixture.storeId } });
+    await tx.customer.deleteMany({ where: { storeId: fixture.storeId } });
     await tx.product.deleteMany({ where: { storeId: fixture.storeId } });
     await tx.session.deleteMany({ where: { userId: fixture.userId } });
     await tx.storeMembership.deleteMany({ where: { userId: fixture.userId, storeId: fixture.storeId } });
@@ -357,6 +369,7 @@ test("sales return integration tests require PostgreSQL", { skip: !databaseAvail
     try {
       const saleBefore = await prisma.sale.findUniqueOrThrow({ where: { id: fixture.saleId } });
       const paymentsBefore = await prisma.salePayment.count({ where: { storeId: fixture.storeId, saleId: fixture.saleId } });
+      const customerBefore = await prisma.customer.findUniqueOrThrow({ where: { id: fixture.customerId } });
       const response = await submitReturn(fixture, { key: "return-financial-boundary-0001", quantity: "1.000" });
       assert.equal(response.status, 201);
 
@@ -366,6 +379,10 @@ test("sales return integration tests require PostgreSQL", { skip: !databaseAvail
       assert.equal(saleAfter.paymentStatus, saleBefore.paymentStatus);
       assert.equal(saleAfter.totalAmount.toString(), saleBefore.totalAmount.toString());
       assert.equal(await prisma.salePayment.count({ where: { storeId: fixture.storeId, saleId: fixture.saleId } }), paymentsBefore);
+      const customerAfter = await prisma.customer.findUniqueOrThrow({ where: { id: fixture.customerId } });
+      assert.equal(customerAfter.creditBalance.toString(), customerBefore.creditBalance.toString());
+      assert.equal(customerAfter.creditLimit.toString(), customerBefore.creditLimit.toString());
+      // The schema has no customer-refund ledger model; returns remain inventory-only.
     } finally {
       await cleanupFixture(fixture);
     }
