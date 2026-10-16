@@ -95,3 +95,24 @@ test("free trial API requires store authentication", async () => {
   assert.equal(response.status, 401);
   assert.equal(response.body.error.code, "UNAUTHENTICATED");
 });
+
+
+test("customer API requires store authentication", async () => {
+  const response = await request(app).get("/stores/store-a/customers");
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error.code, "UNAUTHENTICATED");
+});
+
+test("sales and invoice payment APIs require store authentication", async () => {
+  const saleResponse = await request(app).get("/stores/store-a/sales");
+  const paymentResponse = await request(app).post("/stores/store-a/sales/sale-a/payments").send({
+    amount: "10.00",
+    method: "CASH"
+  });
+
+  assert.equal(saleResponse.status, 401);
+  assert.equal(saleResponse.body.error.code, "UNAUTHENTICATED");
+  assert.equal(paymentResponse.status, 401);
+  assert.equal(paymentResponse.body.error.code, "UNAUTHENTICATED");
+});
