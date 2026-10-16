@@ -322,3 +322,30 @@ salesRouter.post("/:storeId/sales/:saleId/payments", authenticate, requireStoreA
     next(error);
   }
 });
+
+
+salesRouter.get("/:storeId/sales/:saleId", authenticate, requireStoreAccess(undefined, readRoles), async (req, res, next) => {
+  try {
+    const storeId = req.params.storeId;
+    const saleId = req.params.saleId;
+    if (!storeId || !saleId) {
+      res.status(400).json({ error: { code: "SALE_ID_REQUIRED", message: "معرّف المتجر والفاتورة مطلوبان." } });
+      return;
+    }
+    const sale = await prisma.sale.findFirst({
+      where: { id: saleId, storeId },
+      include: {
+        items: { orderBy: { createdAt: "asc" } },
+        payments: { orderBy: { createdAt: "asc" }, select: { id: true, amount: true, method: true, reference: true, createdAt: true } },
+        customer: { select: { id: true, name: true, phone: true, email: true, address: true } }
+      }
+    });
+    if (!sale) {
+      res.status(404).json({ error: { code: "SALE_NOT_FOUND", message: "الفاتورة غير موجودة في هذا المتجر." } });
+      return;
+    }
+    res.status(200).json({ sale });
+  } catch (error) {
+    next(error);
+  }
+});
