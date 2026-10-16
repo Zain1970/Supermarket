@@ -4,10 +4,10 @@
 
 ## آخر نتيجة CI مؤكدة
 
-- **GitHub Actions:** نجاح كامل للتشغيل [#38912015590](https://github.com/Zain1970/Supermarket/actions/runs/38912015590).
+- **GitHub Actions:** نجاح كامل للتشغيل [#38917176896](https://github.com/Zain1970/Supermarket/actions/runs/38917176896)، بعد إضافة واجهات العملاء والمبيعات وسداد الفواتير.
 - **Prisma client generation:** نجح.
 - **TypeScript typecheck:** نجح.
-- **الاختبارات:** نجحت 21 من 21، دون فشل أو تخطٍ.
+- **الاختبارات:** نجحت 23 من 23، دون فشل أو تخطٍ.
 - **TypeScript build:** نجح.
 - **حدود النتيجة:** لا تثبت هذه الفحوص أن كل تدفقات الأعمال آمنة أو جاهزة للإنتاج.
 
