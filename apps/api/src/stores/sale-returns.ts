@@ -83,7 +83,7 @@ saleReturnsRouter.post("/:storeId/sales/:saleId/returns", authenticate, requireS
           totalAmount: total, reason: data.reason, note: data.note, idempotencyKey, requestHash,
           actorUserId: req.principal!.userId,
           items: { create: itemsToReturn.map(({ item, qty, lineTotal }) => ({
-            storeId, saleItemId: item.id, productId: item.productId, quantity: qty,
+            saleItemId: item.id, productId: item.productId, quantity: qty,
             unitPrice: item.unitPrice, lineTotal
           })) }
         },
