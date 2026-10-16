@@ -30,6 +30,7 @@ export const authenticate: RequestHandler = async (request, response, next) => {
           select: {
             id: true,
             isActive: true,
+            isPlatformAdmin: true,
             memberships: {
               select: {
                 storeId: true,
@@ -64,7 +65,7 @@ export const authenticate: RequestHandler = async (request, response, next) => {
 
     const principal: AuthenticatedPrincipal = {
       userId: session.user.id,
-      isPlatformAdmin: memberships.some((membership) => membership.role === "PLATFORM_ADMIN"),
+      isPlatformAdmin: session.user.isPlatformAdmin,
       memberships
     };
 
