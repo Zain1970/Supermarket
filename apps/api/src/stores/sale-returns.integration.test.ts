@@ -255,6 +255,43 @@ test("sales return integration tests require PostgreSQL", { skip: !databaseAvail
     }
   });
 
+  await t.test("rolls back return, stock, movement and audit when a later transaction step fails", async () => {
+    const fixture = await createFixture();
+    let triggerInstalled = false;
+    try {
+      await prisma.$executeRawUnsafe(`
+        CREATE OR REPLACE FUNCTION fail_sale_return_audit_test() RETURNS trigger
+        LANGUAGE plpgsql AS $
+        BEGIN
+          IF NEW.action = 'SALE_RETURN_CREATED' THEN
+            RAISE EXCEPTION 'intentional sales-return integration test failure';
+          END IF;
+          RETURN NEW;
+        END;
+        $;
+      `);
+      await prisma.$executeRawUnsafe(`
+        CREATE TRIGGER fail_sale_return_audit_test
+        BEFORE INSERT ON "AuditLog"
+        FOR EACH ROW EXECUTE FUNCTION fail_sale_return_audit_test();
+      `);
+      triggerInstalled = true;
+
+      const response = await submitReturn(fixture, { key: "return-rollback-0001", quantity: "1.000" });
+      assert.equal(response.status, 500);
+      assert.equal(await prisma.saleReturn.count({ where: { storeId: fixture.storeId } }), 0);
+      assert.equal(await prisma.stockMovement.count({ where: { storeId: fixture.storeId, type: "SALE_RETURN" } }), 0);
+      assert.equal(await prisma.auditLog.count({ where: { storeId: fixture.storeId, action: "SALE_RETURN_CREATED" } }), 0);
+      assert.equal((await prisma.product.findUniqueOrThrow({ where: { id: fixture.productId } })).stockQuantity.toString(), "5");
+    } finally {
+      if (triggerInstalled) {
+        await prisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS fail_sale_return_audit_test ON "AuditLog"');
+        await prisma.$executeRawUnsafe("DROP FUNCTION IF EXISTS fail_sale_return_audit_test()");
+      }
+      await cleanupFixture(fixture);
+    }
+  });
+
   await t.test("concurrent requests cannot return more than the sold quantity", async () => {
     const fixture = await createFixture({ quantity: "2.000" });
     try {
