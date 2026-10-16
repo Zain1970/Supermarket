@@ -3,6 +3,8 @@ import express from "express";
 import { authRouter } from "./auth/routes.js";
 import { storeRouter } from "./stores/routes.js";
 import { inventoryRouter } from "./inventory/routes.js";
+import { addonRouter } from "./addons/routes.js";
+import { adminRouter } from "./admin/routes.js";
 
 export const app = express();
 
@@ -21,6 +23,8 @@ app.get("/health", (_request, response) => {
 app.use("/auth", authRouter);
 app.use("/stores", storeRouter);
 app.use("/stores", inventoryRouter);
+app.use("/stores", addonRouter);
+app.use("/admin", adminRouter);
 
 app.use((_request, response) => {
   response.status(404).json({
