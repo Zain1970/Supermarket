@@ -155,7 +155,10 @@ salesRouter.post("/:storeId/sales", authenticate, requireStoreAccess(undefined, 
 
       if (paid.greaterThan(0)) {
         await tx.salePayment.create({
-          data: { storeId, saleId: created.id, amount: paid, method: data.paymentMethod, actorUserId: req.principal!.userId }
+          data: {
+            storeId, saleId: created.id, amount: paid, method: data.paymentMethod,
+            actorUserId: req.principal!.userId, idempotencyKey: `sale-initial:${created.id}`, requestHash
+          }
         });
       }
 
@@ -211,6 +214,109 @@ salesRouter.post("/:storeId/sales", authenticate, requireStoreAccess(undefined, 
     if (typeof error === "object" && error !== null && "code" in error &&
         (error as { code?: string }).code === "P2002") {
       res.status(409).json({ error: { code: "SALE_CONFLICT", message: "تعذر حفظ الفاتورة بسبب تعارض؛ أعد المحاولة بمفتاح جديد." } });
+      return;
+    }
+    next(error);
+  }
+});
+
+
+const paymentSchema = z.object({
+  amount: amount.refine((value) => Number(value) > 0, "يجب أن يكون مبلغ السداد أكبر من صفر."),
+  method: z.enum(["CASH", "CARD", "TRANSFER"]),
+  reference: z.string().trim().max(180).optional()
+});
+
+salesRouter.post("/:storeId/sales/:saleId/payments", authenticate, requireStoreAccess(undefined, writeRoles), async (req, res, next) => {
+  try {
+    const parsed = paymentSchema.safeParse(req.body);
+    const storeId = req.params.storeId;
+    const saleId = req.params.saleId;
+    const idempotencyKey = req.header("Idempotency-Key")?.trim();
+    if (!storeId || !saleId) {
+      res.status(400).json({ error: { code: "SALE_ID_REQUIRED", message: "معرّف المتجر والفاتورة مطلوبان." } });
+      return;
+    }
+    if (!parsed.success) {
+      res.status(400).json({ error: { code: "INVALID_PAYMENT", message: "تحقق من مبلغ السداد وطريقته." } });
+      return;
+    }
+    if (!idempotencyKey || idempotencyKey.length < 8 || idempotencyKey.length > 128) {
+      res.status(400).json({ error: { code: "IDEMPOTENCY_KEY_REQUIRED", message: "أرسل مفتاح Idempotency-Key صالحًا." } });
+      return;
+    }
+    const data = parsed.data;
+    const requestHash = createHash("sha256").update(JSON.stringify({ storeId, saleId, ...data })).digest("hex");
+    const result = await prisma.$transaction(async (tx) => {
+      const prior = await tx.salePayment.findUnique({ where: { storeId_idempotencyKey: { storeId, idempotencyKey } } });
+      if (prior) {
+        if (prior.requestHash !== requestHash) return { kind: "key_conflict" as const };
+        return { kind: "replay" as const, payment: prior };
+      }
+      const sale = await tx.sale.findFirst({
+        where: { id: saleId, storeId, status: "COMPLETED" },
+        select: { id: true, customerId: true, totalAmount: true, paidAmount: true, balanceDue: true, paymentStatus: true }
+      });
+      if (!sale) return { kind: "sale_missing" as const };
+      const paid = new Prisma.Decimal(data.amount);
+      if (paid.greaterThan(sale.balanceDue) || sale.balanceDue.lessThanOrEqualTo(0)) return { kind: "invalid_amount" as const };
+
+      const payment = await tx.salePayment.create({
+        data: {
+          storeId, saleId, amount: paid, method: data.method, reference: data.reference,
+          actorUserId: req.principal!.userId, idempotencyKey, requestHash
+        }
+      });
+      const newPaid = sale.paidAmount.plus(paid);
+      const newDue = sale.totalAmount.minus(newPaid);
+      const updatedSale = await tx.sale.update({
+        where: { id: sale.id },
+        data: {
+          paidAmount: newPaid,
+          balanceDue: newDue,
+          paymentStatus: newDue.isZero() ? "PAID" : newPaid.isZero() ? "UNPAID" : "PARTIAL"
+        },
+        select: { id: true, invoiceNumber: true, totalAmount: true, paidAmount: true, balanceDue: true, paymentStatus: true, customerId: true }
+      });
+      if (sale.customerId) {
+        const customerUpdate = await tx.customer.updateMany({
+          where: { id: sale.customerId, storeId, creditBalance: { gte: paid } },
+          data: { creditBalance: { decrement: paid } }
+        });
+        if (customerUpdate.count !== 1) {
+          throw Object.assign(new Error("CUSTOMER_BALANCE_INVARIANT"), { publicCode: "CUSTOMER_BALANCE_INVARIANT" });
+        }
+      }
+      await tx.auditLog.create({
+        data: {
+          storeId, actorUserId: req.principal!.userId, action: "SALE_PAYMENT_RECORDED",
+          entityType: "SalePayment", entityId: payment.id,
+          metadata: { saleId, amount: paid.toFixed(2), method: data.method }
+        }
+      });
+      return { kind: "created" as const, payment, sale: updatedSale };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    if (result.kind === "key_conflict") {
+      res.status(409).json({ error: { code: "IDEMPOTENCY_CONFLICT", message: "استُخدم مفتاح السداد لطلب مختلف." } });
+      return;
+    }
+    if (result.kind === "sale_missing") {
+      res.status(404).json({ error: { code: "SALE_NOT_FOUND", message: "الفاتورة غير موجودة أو ملغاة في هذا المتجر." } });
+      return;
+    }
+    if (result.kind === "invalid_amount") {
+      res.status(409).json({ error: { code: "INVALID_PAYMENT_AMOUNT", message: "مبلغ السداد يتجاوز المتبقي أو أن الفاتورة مسددة بالكامل." } });
+      return;
+    }
+    res.status(result.kind === "replay" ? 200 : 201).json({ payment: result.payment, ...(result.kind === "created" ? { sale: result.sale } : {}), replayed: result.kind === "replay" });
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "publicCode" in error) {
+      res.status(409).json({ error: { code: "CUSTOMER_BALANCE_INVARIANT", message: "رصيد العميل لا يتطابق مع سجل الفاتورة؛ راجع سجل الحساب." } });
+      return;
+    }
+    if (typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "P2002") {
+      res.status(409).json({ error: { code: "PAYMENT_CONFLICT", message: "تعارض في تسجيل السداد؛ تحقق من سجل الفاتورة." } });
       return;
     }
     next(error);
