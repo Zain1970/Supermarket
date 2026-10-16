@@ -36,3 +36,13 @@ CREATE INDEX "SaleReturnItem_storeId_saleItemId_idx" ON "SaleReturnItem"("storeI
 ALTER TABLE "SaleReturn" ADD CONSTRAINT "SaleReturn_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "SaleReturn" ADD CONSTRAINT "SaleReturn_storeId_saleId_fkey" FOREIGN KEY ("storeId", "saleId") REFERENCES "Sale"("storeId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "SaleReturnItem" ADD CONSTRAINT "SaleReturnItem_storeId_returnId_fkey" FOREIGN KEY ("storeId", "returnId") REFERENCES "SaleReturn"("storeId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- Enforce referential integrity for returned sale lines and products.
+ALTER TABLE "SaleReturnItem" ADD CONSTRAINT "SaleReturnItem_saleItemId_fkey" FOREIGN KEY ("saleItemId") REFERENCES "SaleItem"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "SaleReturnItem" ADD CONSTRAINT "SaleReturnItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- Reject invalid quantities and negative monetary values at the database boundary.
+ALTER TABLE "SaleReturn" ADD CONSTRAINT "SaleReturn_totalAmount_nonnegative_check" CHECK ("totalAmount" >= 0);
+ALTER TABLE "SaleReturnItem" ADD CONSTRAINT "SaleReturnItem_quantity_positive_check" CHECK ("quantity" > 0);
+ALTER TABLE "SaleReturnItem" ADD CONSTRAINT "SaleReturnItem_unitPrice_nonnegative_check" CHECK ("unitPrice" >= 0);
+ALTER TABLE "SaleReturnItem" ADD CONSTRAINT "SaleReturnItem_lineTotal_nonnegative_check" CHECK ("lineTotal" >= 0);
