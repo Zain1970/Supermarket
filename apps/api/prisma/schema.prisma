@@ -109,6 +109,7 @@ model User {
   email        String            @unique
   passwordHash String
   displayName  String
+  isPlatformAdmin Boolean @default(false)
   isActive     Boolean           @default(true)
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
