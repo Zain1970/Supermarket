@@ -73,7 +73,7 @@ billingRouter.post(
 
       const result = await prisma.$transaction(async (tx) => {
         const active = await tx.subscription.findFirst({
-          where: { storeId, status: "ACTIVE", OR: [{ currentPeriodEnd: null }, { currentPeriodEnd: { gt: new Date() } }] },
+          where: { storeId, status: { in: ["ACTIVE", "TRIALING"] }, OR: [{ currentPeriodEnd: null }, { currentPeriodEnd: { gt: new Date() } }] },
           select: { id: true }
         });
         if (active) return { kind: "active" as const };
