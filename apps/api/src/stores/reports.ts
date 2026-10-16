@@ -8,7 +8,7 @@ import { requireStoreAccess } from "../security/store-access-middleware.js";
 export const reportsRouter = Router();
 
 const reportQuery = z.object({
-  date: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/).optional()
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
 });
 
 function localDateTimeToUtc(date: string, time: string, timeZone: string): Date {
