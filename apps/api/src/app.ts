@@ -3,6 +3,7 @@ import express from "express";
 import { authRouter } from "./auth/routes.js";
 import { storeRouter } from "./stores/routes.js";
 import { memberRouter } from "./stores/members.js";
+import { customerRouter } from "./stores/customers.js";
 import { inventoryRouter } from "./inventory/routes.js";
 import { addonRouter } from "./addons/routes.js";
 import { adminRouter } from "./admin/routes.js";
@@ -25,6 +26,7 @@ app.get("/health", (_request, response) => {
 app.use("/auth", authRouter);
 app.use("/stores", memberRouter);
 app.use("/stores", storeRouter);
+app.use("/stores", customerRouter);
 app.use("/stores", inventoryRouter);
 app.use("/stores", addonRouter);
 app.use("/stores", billingRouter);
