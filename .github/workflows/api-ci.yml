@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
@@ -48,61 +48,6 @@ jobs:
         run: npm install
       - name: Validate Prisma schema
         run: npx prisma validate --schema apps/api/prisma/schema.prisma
-      - name: Prepare pre-returns schema for migration test
-        run: |
-          node --input-type=module <<'NODE'
-          import { readFileSync, writeFileSync } from "node:fs";
-
-          const source = readFileSync("apps/api/prisma/schema.prisma", "utf8");
-          const lines = source.split("\n");
-          const output = [];
-          let model = null;
-          let skipModel = false;
-
-          for (const line of lines) {
-            const start = line.match(/^model (\w+) \{$/);
-            if (start) {
-              model = start[1];
-              skipModel = model === "SaleReturn" || model === "SaleReturnItem";
-              if (skipModel) continue;
-            }
-
-            if (skipModel) {
-              if (line === "}") {
-                model = null;
-                skipModel = false;
-              }
-              continue;
-            }
-
-            if (/\bSaleReturn(?:Item)?\[\]/.test(line) || /\bSaleReturn\s+@relation/.test(line)) {
-              continue;
-            }
-
-            // This compound key is introduced by the tenant-scoped return migration.
-            if (model === "SaleItem" && line.trim() === "@@unique([storeId, id])") {
-              continue;
-            }
-
-            output.push(line);
-            if (model && line === "}") model = null;
-          }
-
-          writeFileSync("apps/api/prisma/schema.pre-returns.prisma", output.join("\n"));
-          NODE
-      - name: Generate baseline migration for existing schema
-        run: |
-          mkdir -p apps/api/prisma/migrations/20261016160000_ci_baseline
-          npx prisma migrate diff \
-            --from-empty \
-            --to-schema-datamodel apps/api/prisma/schema.pre-returns.prisma \
-            --script > apps/api/prisma/migrations/20261016160000_ci_baseline/migration.sql
-      - name: Preserve generated baseline SQL for review
-        uses: actions/upload-artifact@v4
-        with:
-          name: ci-baseline-migration
-          path: apps/api/prisma/migrations/20261016160000_ci_baseline/migration.sql
-          if-no-files-found: error
       - name: Apply baseline and sales-return migrations to PostgreSQL
         run: npx prisma migrate deploy --schema apps/api/prisma/schema.prisma
       - name: Verify upgrade from database with original sales-return migration applied
@@ -112,7 +57,7 @@ jobs:
           mkdir -p apps/api/prisma-upgrade/migrations
           cp apps/api/prisma/schema.prisma apps/api/prisma-upgrade/schema.prisma
           cp apps/api/prisma/migrations/migration_lock.toml apps/api/prisma-upgrade/migrations/
-          cp -R apps/api/prisma/migrations/20261016160000_ci_baseline apps/api/prisma-upgrade/migrations/
+          cp -R apps/api/prisma/migrations/20261016160000_base_schema apps/api/prisma-upgrade/migrations/
           cp -R apps/api/prisma/migrations/20261016170000_sales_returns apps/api/prisma-upgrade/migrations/
           psql "postgresql://postgres:postgres@localhost:5432/supermarket_test" -v ON_ERROR_STOP=1 -c "CREATE SCHEMA upgrade_test"
           DATABASE_URL="postgresql://postgres:postgres@localhost:5432/supermarket_test?schema=upgrade_test" npx prisma migrate deploy --schema apps/api/prisma-upgrade/schema.prisma
@@ -127,17 +72,3 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
-      - name: Commit verified production baseline migration
-        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/fix/sale-return-prisma-relations'
-        run: |
-          mkdir -p apps/api/prisma/migrations/20261016160000_base_schema
-          cp apps/api/prisma/migrations/20261016160000_ci_baseline/migration.sql apps/api/prisma/migrations/20261016160000_base_schema/migration.sql
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/api/prisma/migrations/20261016160000_base_schema/migration.sql
-          if git diff --cached --quiet; then
-            echo "Committed baseline is already up to date."
-            exit 0
-          fi
-          git commit -m "chore(db): add committed baseline migration"
-          git push origin HEAD:fix/sale-return-prisma-relations
