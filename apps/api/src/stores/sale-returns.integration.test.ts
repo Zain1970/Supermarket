@@ -212,7 +212,7 @@ test("sales return integration tests require PostgreSQL", { skip: !databaseAvail
     try {
       const response = await submitReturn(fixture, { key: "return-cashier-0001" });
       assert.equal(response.status, 403);
-      assert.equal(response.body.error.code, "STORE_ACCESS_DENIED");
+      assert.equal(response.body.error.code, "ROLE_NOT_ALLOWED");
     } finally {
       await cleanupFixture(fixture);
     }
