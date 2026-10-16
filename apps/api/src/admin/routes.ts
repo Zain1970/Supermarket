@@ -16,6 +16,145 @@ const paymentListSchema = z.object({
 
 adminRouter.use(authenticate, requirePlatformAdmin);
 
+const planSchema = z.object({
+  code: z.string().trim().regex(/^[a-z0-9][a-z0-9_-]*$/).max(80),
+  name: z.string().trim().min(2).max(120),
+  description: z.string().trim().max(1000).optional(),
+  price: z.string().regex(/^\d{1,12}(\.\d{1,2})?$/),
+  currency: z.string().regex(/^[A-Z]{3}$/).default("YER"),
+  billingCycle: z.enum(["MONTHLY", "QUARTERLY", "YEARLY", "CUSTOM"]).default("MONTHLY"),
+  trialDays: z.number().int().min(0).max(365).default(0),
+  limits: z.record(z.string(), z.number().int().nonnegative()).optional(),
+  features: z.array(z.string().trim().min(1).max(100)).optional(),
+  isActive: z.boolean().default(true)
+});
+
+const planUpdateSchema = planSchema.partial().refine((value) => Object.keys(value).length > 0);
+const addonSchema = z.object({
+  code: z.string().trim().regex(/^[A-Z0-9][A-Z0-9_-]*$/).max(80),
+  name: z.string().trim().min(2).max(120),
+  description: z.string().trim().max(1000).optional(),
+  version: z.string().trim().min(1).max(32).default("1.0.0"),
+  status: z.enum(["DRAFT", "AVAILABLE", "RETIRED"]).default("DRAFT"),
+  price: z.string().regex(/^\d{1,12}(\.\d{1,2})?$/),
+  currency: z.string().regex(/^[A-Z]{3}$/).default("YER"),
+  billingCycle: z.enum(["MONTHLY", "QUARTERLY", "YEARLY", "CUSTOM"]).default("MONTHLY"),
+  minimumPlanCode: z.string().trim().max(80).optional()
+});
+const addonUpdateSchema = addonSchema.partial().refine((value) => Object.keys(value).length > 0);
+
+adminRouter.get("/plans", async (_request, response, next) => {
+  try {
+    const plans = await prisma.plan.findMany({ orderBy: [{ isActive: "desc" }, { price: "asc" }] });
+    response.status(200).json({ plans });
+  } catch (error) { next(error); }
+});
+
+adminRouter.post("/plans", async (request, response, next) => {
+  try {
+    const parsed = planSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ error: { code: "INVALID_PLAN", message: "تحقق من اسم الباقة وسعرها وحدودها." } });
+      return;
+    }
+    const plan = await prisma.plan.create({ data: parsed.data });
+    await prisma.auditLog.create({
+      data: {
+        actorUserId: request.principal!.userId,
+        action: "PLAN_CREATED",
+        entityType: "Plan",
+        entityId: plan.id,
+        metadata: { code: plan.code, price: plan.price.toString(), currency: plan.currency }
+      }
+    });
+    response.status(201).json({ plan });
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "P2002") {
+      response.status(409).json({ error: { code: "PLAN_CODE_EXISTS", message: "رمز الباقة مستخدم بالفعل." } });
+      return;
+    }
+    next(error);
+  }
+});
+
+adminRouter.patch("/plans/:planId", async (request, response, next) => {
+  try {
+    const planId = request.params.planId;
+    const parsed = planUpdateSchema.safeParse(request.body);
+    if (!planId || !parsed.success) {
+      response.status(400).json({ error: { code: "INVALID_PLAN_UPDATE", message: "تحقق من بيانات تحديث الباقة." } });
+      return;
+    }
+    const plan = await prisma.plan.update({ where: { id: planId }, data: parsed.data });
+    await prisma.auditLog.create({
+      data: {
+        actorUserId: request.principal!.userId,
+        action: "PLAN_UPDATED",
+        entityType: "Plan",
+        entityId: plan.id,
+        metadata: { changedFields: Object.keys(parsed.data) }
+      }
+    });
+    response.status(200).json({ plan });
+  } catch (error) { next(error); }
+});
+
+adminRouter.get("/addons", async (_request, response, next) => {
+  try {
+    const addons = await prisma.addon.findMany({ orderBy: [{ status: "asc" }, { name: "asc" }] });
+    response.status(200).json({ addons });
+  } catch (error) { next(error); }
+});
+
+adminRouter.post("/addons", async (request, response, next) => {
+  try {
+    const parsed = addonSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ error: { code: "INVALID_ADDON", message: "تحقق من اسم الإضافة وسعرها ودورة الفوترة." } });
+      return;
+    }
+    const addon = await prisma.addon.create({ data: parsed.data });
+    await prisma.auditLog.create({
+      data: {
+        actorUserId: request.principal!.userId,
+        action: "ADDON_CREATED",
+        entityType: "Addon",
+        entityId: addon.id,
+        metadata: { code: addon.code, status: addon.status, price: addon.price.toString(), currency: addon.currency }
+      }
+    });
+    response.status(201).json({ addon });
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "P2002") {
+      response.status(409).json({ error: { code: "ADDON_CODE_EXISTS", message: "رمز الإضافة مستخدم بالفعل." } });
+      return;
+    }
+    next(error);
+  }
+});
+
+adminRouter.patch("/addons/:addonId", async (request, response, next) => {
+  try {
+    const addonId = request.params.addonId;
+    const parsed = addonUpdateSchema.safeParse(request.body);
+    if (!addonId || !parsed.success) {
+      response.status(400).json({ error: { code: "INVALID_ADDON_UPDATE", message: "تحقق من بيانات تحديث الإضافة." } });
+      return;
+    }
+    const addon = await prisma.addon.update({ where: { id: addonId }, data: parsed.data });
+    await prisma.auditLog.create({
+      data: {
+        actorUserId: request.principal!.userId,
+        action: "ADDON_UPDATED",
+        entityType: "Addon",
+        entityId: addon.id,
+        metadata: { changedFields: Object.keys(parsed.data) }
+      }
+    });
+    response.status(200).json({ addon });
+  } catch (error) { next(error); }
+});
+
 adminRouter.get("/payments", async (request, response, next) => {
   try {
     const parsed = paymentListSchema.safeParse(request.query);
@@ -66,7 +205,7 @@ adminRouter.post("/payments/:paymentId/confirm", async (request, response, next)
 
         const claimed = await tx.payment.updateMany({
           where: { id: payment.id, status: "PENDING" },
-          data: { status: "CONFIRMED", confirmedById: request.principal!.userId, confirmedAt: now }
+          data: { status: "CONFIRMED", confirmedById: request.principal!.userId, confirmedAt: now, reviewedById: request.principal!.userId, reviewedAt: now, reviewNote: "اعتماد يدوي من مسؤول المنصة" }
         });
         if (claimed.count !== 1) return { kind: "not_pending" as const };
 
@@ -187,3 +326,81 @@ adminRouter.post("/payments/:paymentId/confirm", async (request, response, next)
     next(error);
   }
 });
+
+adminRouter.post("/payments/:paymentId/reject", async (request, response, next) => {
+  try {
+    const paymentId = request.params.paymentId;
+    const parsed = z.object({ reason: z.string().trim().min(3).max(1000) }).safeParse(request.body);
+    if (!paymentId || !parsed.success) {
+      response.status(400).json({ error: { code: "INVALID_REJECTION", message: "أدخل سبب رفض واضحًا." } });
+      return;
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.findUnique({ where: { id: paymentId } });
+      if (!payment) return { kind: "missing" as const };
+      if (payment.status !== "PENDING") return { kind: "not_pending" as const };
+
+      if (payment.purpose === "ADDON") {
+        const grant = await tx.storeAddon.findFirst({
+          where: { id: payment.purposeReference, storeId: payment.storeId }
+        });
+        if (!grant || grant.status !== "PENDING_PAYMENT") return { kind: "request_invalid" as const };
+        await tx.storeAddon.update({
+          where: { id: grant.id },
+          data: { status: "CANCELLED", disabledReason: parsed.data.reason }
+        });
+      } else {
+        const subscription = await tx.subscription.findFirst({
+          where: { id: payment.purposeReference, storeId: payment.storeId }
+        });
+        if (!subscription || subscription.status !== "PENDING_PAYMENT") return { kind: "request_invalid" as const };
+        await tx.subscription.update({
+          where: { id: subscription.id },
+          data: { status: "CANCELLED", endedAt: new Date() }
+        });
+      }
+
+      const now = new Date();
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: "REJECTED",
+          reviewedById: request.principal!.userId,
+          reviewedAt: now,
+          reviewNote: parsed.data.reason
+        }
+      });
+      await tx.auditLog.create({
+        data: {
+          storeId: payment.storeId,
+          actorUserId: request.principal!.userId,
+          action: "PAYMENT_REJECTED",
+          entityType: "Payment",
+          entityId: payment.id,
+          reason: parsed.data.reason,
+          metadata: { purpose: payment.purpose, purposeReference: payment.purposeReference }
+        }
+      });
+      return { kind: "rejected" as const, paymentId: payment.id };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    if (result.kind === "missing") {
+      response.status(404).json({ error: { code: "PAYMENT_NOT_FOUND", message: "لم يتم العثور على الدفعة." } });
+      return;
+    }
+    if (result.kind === "not_pending") {
+      response.status(409).json({ error: { code: "PAYMENT_ALREADY_PROCESSED", message: "تمت معالجة هذه الدفعة بالفعل." } });
+      return;
+    }
+    if (result.kind === "request_invalid") {
+      response.status(409).json({ error: { code: "PAYMENT_REQUEST_INVALID", message: "طلب الاشتراك أو الإضافة لم يعد معلقًا." } });
+      return;
+    }
+
+    response.status(200).json({ message: "تم رفض الدفعة وتسجيل السبب.", paymentId: result.paymentId });
+  } catch (error) {
+    next(error);
+  }
+});
+
