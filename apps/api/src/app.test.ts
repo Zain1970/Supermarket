@@ -54,3 +54,10 @@ test("subscription purchase API requires store authentication", async () => {
   assert.equal(response.status, 401);
   assert.equal(response.body.error.code, "UNAUTHENTICATED");
 });
+
+test("free trial API requires store authentication", async () => {
+  const response = await request(app).post("/stores/store-a/subscription/trial").send({ planCode: "starter" });
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error.code, "UNAUTHENTICATED");
+});
