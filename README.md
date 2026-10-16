@@ -45,7 +45,7 @@ npm run dev:api
 ```bash
 export BOOTSTRAP_ADMIN_EMAIL=admin@example.com
 read -r -s -p "كلمة مرور المسؤول الأول: " BOOTSTRAP_ADMIN_PASSWORD
-printf '\\n'
+printf '\n'
 export BOOTSTRAP_ADMIN_PASSWORD
 npm run bootstrap:admin --workspace @supermarket/api
 unset BOOTSTRAP_ADMIN_PASSWORD
