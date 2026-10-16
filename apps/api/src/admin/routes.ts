@@ -122,6 +122,11 @@ adminRouter.post("/payments/:paymentId/confirm", async (request, response, next)
       });
       if (claimed.count !== 1) return { kind: "not_pending" as const };
 
+      await tx.subscription.updateMany({
+        where: { storeId: payment.storeId, status: "ACTIVE", currentPeriodEnd: { lte: now } },
+        data: { status: "EXPIRED" }
+      });
+
       const activated = await tx.subscription.update({
         where: { id: subscription.id },
         data: {
