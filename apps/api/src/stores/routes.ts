@@ -31,6 +31,109 @@ const listQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(25)
 });
 
+const createStoreSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  slug: z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).min(3).max(60),
+  timezone: z.string().trim().min(1).max(80).default("Asia/Aden"),
+  currency: z.string().trim().regex(/^[A-Z]{3}$/).default("YER")
+});
+
+storeRouter.get("/", authenticate, async (request, response, next) => {
+  try {
+    const principal = request.principal!;
+    const stores = await prisma.store.findMany({
+      where: {
+        memberships: { some: { userId: principal.userId } },
+        status: { not: "ARCHIVED" }
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        status: true,
+        timezone: true,
+        currency: true,
+        createdAt: true,
+        memberships: {
+          where: { userId: principal.userId },
+          select: { role: true }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+    response.status(200).json({
+      stores: stores.map(({ memberships, ...store }) => ({
+        ...store,
+        role: memberships[0]?.role ?? null
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+storeRouter.post("/", authenticate, async (request, response, next) => {
+  try {
+    const parsed = createStoreSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({
+        error: { code: "INVALID_STORE", message: "تحقق من اسم المتجر ورابطه المختصر والعملة والمنطقة الزمنية." }
+      });
+      return;
+    }
+
+    const data = parsed.data;
+    const store = await prisma.$transaction(async (tx) => {
+      const created = await tx.store.create({
+        data: {
+          name: data.name,
+          slug: data.slug,
+          timezone: data.timezone,
+          currency: data.currency,
+          memberships: {
+            create: {
+              userId: request.principal!.userId,
+              role: "STORE_OWNER"
+            }
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          status: true,
+          timezone: true,
+          currency: true,
+          createdAt: true
+        }
+      });
+
+      await tx.auditLog.create({
+        data: {
+          storeId: created.id,
+          actorUserId: request.principal!.userId,
+          action: "STORE_CREATED",
+          entityType: "Store",
+          entityId: created.id,
+          metadata: { slug: created.slug, currency: created.currency }
+        }
+      });
+      return created;
+    });
+
+    response.status(201).json({ store: { ...store, role: "STORE_OWNER" } });
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error &&
+        (error as { code?: string }).code === "P2002") {
+      response.status(409).json({
+        error: { code: "STORE_SLUG_EXISTS", message: "الرابط المختصر مستخدم بالفعل. اختر رابطًا آخر." }
+      });
+      return;
+    }
+    next(error);
+  }
+});
+
 storeRouter.get(
   "/:storeId/products",
   authenticate,
