@@ -104,6 +104,7 @@ function submitReturn(fixture: Fixture, input: {
   saleId?: string;
   saleItemId?: string;
   quantity?: string;
+  items?: { saleItemId: string; quantity: string }[];
   reason?: string;
   key?: string;
 } = {}) {
@@ -113,7 +114,7 @@ function submitReturn(fixture: Fixture, input: {
     .set("Idempotency-Key", input.key ?? `return-key-${randomBytes(8).toString("hex")}`)
     .send({
       reason: input.reason ?? "منتج تالف",
-      items: [{ saleItemId: input.saleItemId ?? fixture.saleItemId, quantity: input.quantity ?? "1.000" }]
+      items: input.items ?? [{ saleItemId: input.saleItemId ?? fixture.saleItemId, quantity: input.quantity ?? "1.000" }]
     });
 }
 
@@ -252,6 +253,44 @@ test("sales return integration tests require PostgreSQL", { skip: !databaseAvail
     } finally {
       await cleanupFixture(left);
       await cleanupFixture(right);
+    }
+  });
+
+  await t.test("creates distinct stock movements for multiple sale lines of the same product", async () => {
+    const fixture = await createFixture();
+    try {
+      const secondLine = await prisma.saleItem.create({
+        data: {
+          storeId: fixture.storeId,
+          saleId: fixture.saleId,
+          productId: fixture.productId,
+          productName: "Return test product",
+          sku: "SAME-PRODUCT-SECOND-LINE",
+          quantity: "1.000",
+          unitPrice: "10.00",
+          lineTotal: "10.00"
+        }
+      });
+      const response = await submitReturn(fixture, {
+        key: "return-same-product-lines-0001",
+        items: [
+          { saleItemId: fixture.saleItemId, quantity: "1.000" },
+          { saleItemId: secondLine.id, quantity: "1.000" }
+        ]
+      });
+      assert.equal(response.status, 201);
+      assert.equal(response.body.saleReturn.items.length, 2);
+      assert.equal(await prisma.stockMovement.count({
+        where: { storeId: fixture.storeId, type: "SALE_RETURN", reference: response.body.saleReturn.id }
+      }), 2);
+      const movements = await prisma.stockMovement.findMany({
+        where: { storeId: fixture.storeId, type: "SALE_RETURN", reference: response.body.saleReturn.id },
+        select: { idempotencyKey: true }
+      });
+      assert.equal(new Set(movements.map((movement) => movement.idempotencyKey)).size, 2);
+      assert.equal((await prisma.product.findUniqueOrThrow({ where: { id: fixture.productId } })).stockQuantity.toString(), "7");
+    } finally {
+      await cleanupFixture(fixture);
     }
   });
 
