@@ -23,7 +23,7 @@
 - كتالوج الإضافات وطلب شراء بالدفع اليدوي.
 - واجهات Super Admin لإدارة الباقات والإضافات، ومراجعة المدفوعات وتأكيدها أو رفضها مع تسجيل السبب.
 - تفعيل الاشتراك أو الإضافة بعد تأكيد مسؤول مخوّل فقط، وليس عند إنشاء طلب الدفع.
-- GitHub Actions نجح في Prisma generate وTypeScript typecheck و21 اختبارًا وbuild في [التشغيل #38912015590](https://github.com/Zain1970/Supermarket/actions/runs/38912015590).
+- GitHub Actions نجح في Prisma generate وTypeScript typecheck والاختبارات وbuild في [التشغيل #38917176896](https://github.com/Zain1970/Supermarket/actions/runs/38917176896).
 
 ## إعداد البيئة
 
