@@ -91,7 +91,13 @@ saleReturnsRouter.post("/:storeId/sales/:saleId/returns", authenticate, requireS
       });
 
       for (const { item, qty } of itemsToReturn) {
-        await tx.product.update({ where: { id: item.productId }, data: { stockQuantity: { increment: qty } } });
+        const productUpdate = await tx.product.updateMany({
+          where: { id: item.productId, storeId },
+          data: { stockQuantity: { increment: qty } }
+        });
+        if (productUpdate.count !== 1) {
+          throw Object.assign(new Error("RETURN_PRODUCT_INVARIANT"), { publicCode: "RETURN_PRODUCT_INVARIANT" });
+        }
         await tx.stockMovement.create({
           data: {
             storeId, productId: item.productId, type: "SALE_RETURN", quantity: qty,
@@ -126,6 +132,10 @@ saleReturnsRouter.post("/:storeId/sales/:saleId/returns", authenticate, requireS
     }
     res.status(201).json({ saleReturn: result.saleReturn, replayed: false });
   } catch (error) {
+    if (typeof error === "object" && error !== null && "publicCode" in error && (error as { publicCode?: string }).publicCode === "RETURN_PRODUCT_INVARIANT") {
+      res.status(409).json({ error: { code: "RETURN_PRODUCT_INVARIANT", message: "تعذر مطابقة المنتج بالمتجر أثناء تسجيل المرتجع؛ لم تُحفظ العملية." } });
+      return;
+    }
     if (typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "P2002") {
       res.status(409).json({ error: { code: "RETURN_CONFLICT", message: "تعارض أثناء تسجيل المرتجع؛ أعد قراءة الفاتورة قبل المحاولة." } });
       return;
