@@ -116,3 +116,10 @@ test("sales and invoice payment APIs require store authentication", async () => 
   assert.equal(paymentResponse.status, 401);
   assert.equal(paymentResponse.body.error.code, "UNAUTHENTICATED");
 });
+
+test("daily report API requires store authentication", async () => {
+  const response = await request(app).get("/stores/store-a/reports/daily?date=2026-10-16");
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error.code, "UNAUTHENTICATED");
+});
