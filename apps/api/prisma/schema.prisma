@@ -117,6 +117,7 @@ model User {
   sessions     Session[]
   auditLogs    AuditLog[]        @relation("AuditActor")
   confirmedPayments Payment[]    @relation("PaymentConfirmer")
+  reviewedPayments Payment[]     @relation("PaymentReviewer")
 }
 
 model StoreMembership {
@@ -304,10 +305,14 @@ model Payment {
   note             String?
   confirmedById    String?
   confirmedAt      DateTime?
+  reviewedById     String?
+  reviewedAt       DateTime?
+  reviewNote       String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   store            Store          @relation(fields: [storeId], references: [id], onDelete: Restrict)
   confirmedBy      User?          @relation("PaymentConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull)
+  reviewedBy       User?          @relation("PaymentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   @@index([storeId, status, createdAt])
   @@index([purpose, purposeReference])
