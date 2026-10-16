@@ -2,28 +2,29 @@
 
 **تاريخ التقرير:** 2026-10-16
 
-## النتائج الحالية
+## الاختبارات المضافة
 
-| الفحص | الحالة | التفاصيل |
+| الفحص | الحالة | الملف |
 |---|---|---|
-| التحقق من أن المستودع كان فارغًا قبل التأسيس | ناجح | فحص GitHub Contents API أعاد أن المستودع فارغ قبل إضافة الوثائق |
-| اختبار مصدر `GET /health` | أُضيف ولم يُشغّل | `apps/api/src/app.test.ts` |
-| اختبار مسار غير معروف | أُضيف ولم يُشغّل | يتحقق من 404 ورسالة عربية آمنة |
-| npm install | لم يُشغّل | يحتاج بيئة تنفيذ |
-| TypeScript build/typecheck | لم يُشغّل | لا تدّعِ نجاح البناء |
-| Prisma validate/generate/migrate | لم يُشغّل | يحتاج تثبيت الاعتماديات وقاعدة بيانات/إعدادًا |
-| اختبارات عزل المستأجرين | غير منفذة | أولوية أمنية قبل الميزات التجارية |
-| فحص ثغرات الاعتماديات | غير منفذ | يجب تشغيله بعد تثبيت الاعتماديات |
+| نقطة صحة API | أُضيف ولم يُشغّل محليًا | `apps/api/src/app.test.ts` |
+| أخطاء المسارات غير الموجودة | أُضيف ولم يُشغّل محليًا | `apps/api/src/app.test.ts` |
+| رفض المستخدم غير المسجل | أُضيف ولم يُشغّل محليًا | `apps/api/src/security/access-control.test.ts` |
+| منع الوصول لمتجر آخر | أُضيف ولم يُشغّل محليًا | `apps/api/src/security/access-control.test.ts` |
+| تقييد الأدوار | أُضيف ولم يُشغّل محليًا | `apps/api/src/security/access-control.test.ts` |
+| استحقاق POS/الإضافات وحالات الانتهاء | أُضيف ولم يُشغّل محليًا | `apps/api/src/security/addon-entitlement.test.ts` |
+| TypeScript build/typecheck | لم يُشغّل | يتطلب تثبيت الاعتماديات |
+| Prisma validate/generate/migrate | لم يُشغّل | يتطلب تثبيت الاعتماديات وإعداد قاعدة البيانات للترحيل |
+| اختبارات تكامل عزل المستأجرين في PostgreSQL | غير منفذة | أولوية قبل الإنتاج |
 
-## أوامر التحقق التالية
-
-من جذر المشروع:
+## أوامر التحقق المقترحة
 
 ```bash
 npm install
+npx prisma validate --schema apps/api/prisma/schema.prisma
+npx prisma generate --schema apps/api/prisma/schema.prisma
 npm run typecheck
 npm test
 npm run build
 ```
 
-هذه أوامر مقترحة؛ لم يتم تشغيلها في هذا التغيير.
+لا تعتبر أي نتيجة ناجحة قبل تشغيل الأمر أو رؤية نتيجة CI ناجحة.
