@@ -43,9 +43,12 @@ npm run dev:api
 بعد إعداد قاعدة البيانات والترحيلات، نفّذ الأمر مرة واحدة في بيئة موثوقة. لا تمرر كلمة المرور في سطر الأوامر؛ حمّلها كمتغير بيئة آمن من مدير الأسرار أو من جلسة محلية آمنة:
 
 ```bash
-BOOTSTRAP_ADMIN_EMAIL=admin@example.com \
-BOOTSTRAP_ADMIN_PASSWORD='replace-with-a-long-random-password' \
+export BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+read -r -s -p "كلمة مرور المسؤول الأول: " BOOTSTRAP_ADMIN_PASSWORD
+printf '\\n'
+export BOOTSTRAP_ADMIN_PASSWORD
 npm run bootstrap:admin --workspace @supermarket/api
+unset BOOTSTRAP_ADMIN_PASSWORD
 ```
 
 الأمر يرفض العمل إذا كان هناك مسؤول منصة موجود. المثال توضيحي فقط؛ لا تستخدم كلمة المرور المذكورة فعليًا. لا يوجد تسجيل عام للمستخدمين.
