@@ -122,6 +122,17 @@ addonRouter.post(
           }
         });
 
+        await tx.auditLog.create({
+          data: {
+            storeId,
+            actorUserId: request.principal!.userId,
+            action: "ADDON_PURCHASE_REQUESTED",
+            entityType: "Payment",
+            entityId: payment.id,
+            metadata: { addonCode: addon.code, amount: addon.price.toString(), currency: addon.currency }
+          }
+        });
+
         return { kind: "created" as const, payment, storeAddon };
       });
 
