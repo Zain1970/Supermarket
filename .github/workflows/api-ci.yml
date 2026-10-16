@@ -46,6 +46,10 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Report dependency audit findings (non-blocking)
+        run: |
+          npm audit --json > npm-audit-report.json || true
+          node --input-type=commonjs -e 'const r=require("./npm-audit-report.json"); const out={metadata:r.metadata?.vulnerabilities ?? null, advisories:Object.entries(r.vulnerabilities ?? {}).map(([name,v])=>({name,severity:v.severity,range:v.range,via:(v.via ?? []).map(x=>typeof x === "string" ? x : {title:x.title,url:x.url,range:x.range}),fixAvailable:v.fixAvailable}))}; console.log(JSON.stringify(out,null,2))'
       - name: Validate Prisma schema
         run: npx prisma validate --schema apps/api/prisma/schema.prisma
       - name: Apply baseline and sales-return migrations to PostgreSQL
