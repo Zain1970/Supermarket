@@ -140,6 +140,10 @@ saleReturnsRouter.post("/:storeId/sales/:saleId/returns", authenticate, requireS
       res.status(409).json({ error: { code: "RETURN_CONFLICT", message: "تعارض أثناء تسجيل المرتجع؛ أعد قراءة الفاتورة قبل المحاولة." } });
       return;
     }
+    if (typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "P2034") {
+      res.status(409).json({ error: { code: "RETURN_CONCURRENT_MODIFICATION", message: "تزامنت عملية مرتجع أخرى؛ أعد قراءة الفاتورة ثم حاول مجددًا." } });
+      return;
+    }
     next(error);
   }
 });
