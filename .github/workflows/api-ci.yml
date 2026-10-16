@@ -48,7 +48,51 @@ jobs:
         run: npm install
       - name: Validate Prisma schema
         run: npx prisma validate --schema apps/api/prisma/schema.prisma
-      - name: Apply migrations to PostgreSQL
+      - name: Prepare pre-returns schema for migration test
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+
+          const source = readFileSync("apps/api/prisma/schema.prisma", "utf8");
+          const lines = source.split("\n");
+          const output = [];
+          let model = null;
+          let skipModel = false;
+
+          for (const line of lines) {
+            const start = line.match(/^model (\w+) \{$/);
+            if (start) {
+              model = start[1];
+              skipModel = model === "SaleReturn" || model === "SaleReturnItem";
+              if (skipModel) continue;
+            }
+
+            if (skipModel) {
+              if (line === "}") {
+                model = null;
+                skipModel = false;
+              }
+              continue;
+            }
+
+            if (/\bSaleReturn(?:Item)?\[\]/.test(line) || /\bSaleReturn\s+@relation/.test(line)) {
+              continue;
+            }
+
+            // This compound key is introduced by the tenant-scoped return migration.
+            if (model === "SaleItem" && line.trim() === "@@unique([storeId, id])") {
+              continue;
+            }
+
+            output.push(line);
+            if (model && line === "}") model = null;
+          }
+
+          writeFileSync("apps/api/prisma/schema.pre-returns.prisma", output.join("\n"));
+          NODE
+      - name: Create base schema in PostgreSQL
+        run: npx prisma db push --schema apps/api/prisma/schema.pre-returns.prisma
+      - name: Apply sales-return migrations to PostgreSQL
         run: npx prisma migrate deploy --schema apps/api/prisma/schema.prisma
       - name: Generate Prisma client
         run: npx prisma generate --schema apps/api/prisma/schema.prisma
