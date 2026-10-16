@@ -17,6 +17,7 @@ This checklist is required before merging the sales-return changes or deploying 
 - [ ] A return line from another sale is rejected.
 - [ ] A return product or sale line from another store is rejected by database constraints.
 - [ ] Repeated idempotency key and identical payload replay the original result.
+- [ ] Concurrent requests with the same idempotency key and identical payload replay the winning result rather than returning a generic conflict.
 - [ ] A return containing multiple sale lines for the same product creates distinct stock-movement idempotency keys and commits atomically.
 - [ ] Reusing an idempotency key with a different payload returns 409.
 - [ ] Returning more than the sold quantity, including across concurrent requests, cannot succeed.
