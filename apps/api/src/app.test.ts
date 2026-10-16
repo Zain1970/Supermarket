@@ -20,6 +20,23 @@ test("unknown API routes return a safe Arabic error", async () => {
   assert.match(response.body.error.message, /المسار/);
 });
 
+test("store listing requires authentication", async () => {
+  const response = await request(app).get("/stores");
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error.code, "UNAUTHENTICATED");
+});
+
+test("store creation requires authentication", async () => {
+  const response = await request(app).post("/stores").send({
+    name: "متجر تجريبي",
+    slug: "test-store"
+  });
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error.code, "UNAUTHENTICATED");
+});
+
 test("store product API requires authentication", async () => {
   const response = await request(app).get("/stores/store-a/products");
 
