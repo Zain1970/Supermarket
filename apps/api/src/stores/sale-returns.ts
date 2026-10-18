@@ -83,7 +83,7 @@ saleReturnsRouter.post("/:storeId/sales/:saleId/returns", authenticate, requireS
           totalAmount: total, reason: data.reason, note: data.note, idempotencyKey, requestHash,
           actorUserId: req.principal!.userId,
           items: { create: itemsToReturn.map(({ item, qty, lineTotal }) => ({
-            storeId, saleItemId: item.id, productId: item.productId, quantity: qty,
+            saleItemId: item.id, productId: item.productId, quantity: qty,
             unitPrice: item.unitPrice, lineTotal
           })) }
         },
@@ -102,7 +102,7 @@ saleReturnsRouter.post("/:storeId/sales/:saleId/returns", authenticate, requireS
           data: {
             storeId, productId: item.productId, type: "SALE_RETURN", quantity: qty,
             reason: `Sales return: ${data.reason}`, reference: created.id,
-            idempotencyKey: `sale-return:${created.id}:${item.productId}`, requestHash,
+            idempotencyKey: `sale-return:${created.id}:${item.id}`, requestHash,
             actorUserId: req.principal!.userId
           }
         });
@@ -137,7 +137,56 @@ saleReturnsRouter.post("/:storeId/sales/:saleId/returns", authenticate, requireS
       return;
     }
     if (typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "P2002") {
+      // A simultaneous request may win the unique idempotency-key race after our
+      // preflight lookup. Replay its result when the payload is identical.
+      const storeId = req.params.storeId;
+      const idempotencyKey = req.header("Idempotency-Key")?.trim();
+      const parsed = returnSchema.safeParse(req.body);
+      if (storeId && idempotencyKey && parsed.success) {
+        const requestHash = createHash("sha256")
+          .update(JSON.stringify({ storeId, saleId: req.params.saleId, ...parsed.data }))
+          .digest("hex");
+        const prior = await prisma.saleReturn.findUnique({
+          where: { storeId_idempotencyKey: { storeId, idempotencyKey } },
+          include: { items: true }
+        });
+        if (prior) {
+          if (prior.requestHash !== requestHash) {
+            res.status(409).json({ error: { code: "IDEMPOTENCY_CONFLICT", message: "استُخدم مفتاح المرتجع نفسه لطلب مختلف." } });
+            return;
+          }
+          res.status(200).json({ saleReturn: prior, replayed: true });
+          return;
+        }
+      }
       res.status(409).json({ error: { code: "RETURN_CONFLICT", message: "تعارض أثناء تسجيل المرتجع؛ أعد قراءة الفاتورة قبل المحاولة." } });
+      return;
+    }
+    if (typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "P2034") {
+      // Serializable isolation may surface a duplicate idempotent request as a
+      // transaction conflict instead of P2002. Replay the committed winner when
+      // it exists and the request hash matches.
+      const storeId = req.params.storeId;
+      const idempotencyKey = req.header("Idempotency-Key")?.trim();
+      const parsed = returnSchema.safeParse(req.body);
+      if (storeId && idempotencyKey && parsed.success) {
+        const requestHash = createHash("sha256")
+          .update(JSON.stringify({ storeId, saleId: req.params.saleId, ...parsed.data }))
+          .digest("hex");
+        const prior = await prisma.saleReturn.findUnique({
+          where: { storeId_idempotencyKey: { storeId, idempotencyKey } },
+          include: { items: true }
+        });
+        if (prior) {
+          if (prior.requestHash !== requestHash) {
+            res.status(409).json({ error: { code: "IDEMPOTENCY_CONFLICT", message: "استُخدم مفتاح المرتجع نفسه لطلب مختلف." } });
+            return;
+          }
+          res.status(200).json({ saleReturn: prior, replayed: true });
+          return;
+        }
+      }
+      res.status(409).json({ error: { code: "RETURN_CONCURRENT_MODIFICATION", message: "تزامنت عملية مرتجع أخرى؛ أعد قراءة الفاتورة ثم حاول مجددًا." } });
       return;
     }
     next(error);

@@ -211,6 +211,7 @@ model Product {
   category       ProductCategory? @relation(fields: [storeId, categoryId], references: [storeId, id], onDelete: Restrict)
   stockMovements StockMovement[]
   saleItems      SaleItem[]
+  saleReturnItems SaleReturnItem[]
 
   @@unique([storeId, sku])
   @@unique([storeId, id])
@@ -308,7 +309,9 @@ model SaleItem {
   createdAt     DateTime @default(now())
   sale          Sale     @relation(fields: [storeId, saleId], references: [storeId, id], onDelete: Restrict)
   product       Product  @relation(fields: [storeId, productId], references: [storeId, id], onDelete: Restrict)
+  returnItems   SaleReturnItem[]
 
+  @@unique([storeId, id])
   @@index([storeId, saleId])
   @@index([storeId, productId, createdAt])
 }
@@ -478,6 +481,8 @@ model SaleReturnItem {
   lineTotal      Decimal  @db.Decimal(14, 2)
   createdAt      DateTime @default(now())
   saleReturn     SaleReturn @relation(fields: [storeId, returnId], references: [storeId, id], onDelete: Restrict)
+  saleItem       SaleItem   @relation(fields: [storeId, saleItemId], references: [storeId, id], onDelete: Restrict)
+  product        Product    @relation(fields: [storeId, productId], references: [storeId, id], onDelete: Restrict)
 
   @@index([storeId, returnId])
   @@index([storeId, saleItemId])
