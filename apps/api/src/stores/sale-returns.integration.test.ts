@@ -364,6 +364,35 @@ test("sales return integration tests require PostgreSQL", { skip: !databaseAvail
     }
   });
 
+  await t.test("maps an uncommitted Prisma P2034 conflict to RETURN_CONCURRENT_MODIFICATION", async () => {
+    const fixture = await createFixture();
+    const originalDescriptor = Object.getOwnPropertyDescriptor(prisma, "$transaction");
+    try {
+      Object.defineProperty(prisma, "$transaction", {
+        configurable: true,
+        writable: true,
+        value: (async () => {
+          throw Object.assign(new Error("deterministic test serialization conflict"), { code: "P2034" });
+        }) as typeof prisma.$transaction
+      });
+
+      const response = await submitReturn(fixture, {
+        key: "return-p2034-no-winner-0001",
+        quantity: "1.000"
+      });
+      assert.equal(response.status, 409);
+      assert.equal(response.body.error.code, "RETURN_CONCURRENT_MODIFICATION");
+      assert.equal(await prisma.saleReturn.count({ where: { storeId: fixture.storeId } }), 0);
+    } finally {
+      if (originalDescriptor) {
+        Object.defineProperty(prisma, "$transaction", originalDescriptor);
+      } else {
+        Reflect.deleteProperty(prisma, "$transaction");
+      }
+      await cleanupFixture(fixture);
+    }
+  });
+
   await t.test("keeps returns inventory-only and does not alter sale payments or customer balances", async () => {
     const fixture = await createFixture();
     try {
