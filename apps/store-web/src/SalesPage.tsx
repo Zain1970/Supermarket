@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { AlertTriangle, CircleAlert, Plus, Receipt, RefreshCw, ShoppingCart, Trash2 } from "lucide-react";
+import { AlertTriangle, CircleAlert, Plus, Receipt, RefreshCw, ShoppingCart, Trash2, X } from "lucide-react";
 
 type Sale = { id: string; invoiceNumber: string; status: string; paymentStatus: string; totalAmount: string | number; paidAmount: string | number; balanceDue: string | number; paymentMethod: string; createdAt: string; customer?: { name: string; phone?: string | null } | null; _count: { items: number } };
 type Product = { id: string; sku: string; name: string; unit: string; salePrice: string | number; stockQuantity: string | number; status: string };
