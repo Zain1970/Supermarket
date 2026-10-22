@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { BadgeCheck, CircleAlert, CreditCard, Plus, RefreshCw, ShieldCheck, Sparkles, X } from "lucide-react";
+import { BadgeCheck, CircleAlert, Plus, RefreshCw, ShieldCheck, Sparkles, X } from "lucide-react";
 
 type Payment = { id: string; purpose: "SUBSCRIPTION" | "ADDON"; purposeReference: string; amount: string | number; currency: string; method: string; status: string; note?: string | null; createdAt: string; store: { id: string; name: string; slug: string } };
 type Plan = { id: string; code: string; name: string; price: string | number; currency: string; billingCycle: string; isActive: boolean };
@@ -122,4 +122,3 @@ export default function AdminPage() {
   </div>;
 }
 
-function CreditCardIcon() { return <CreditCard size={18} />; }
