@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Activity, ArrowDownLeft, Boxes, Check, ChevronDown, CircleAlert, LogOut, PackagePlus, RefreshCw, Search, ShieldCheck, ShoppingBasket, Store as StoreIcon, Users, Receipt, TrendingUp, PackageCheck } from "lucide-react";
+import { Activity, ArrowDownLeft, Boxes, Check, ChevronDown, CircleAlert, LogOut, PackagePlus, RefreshCw, Search, ShieldCheck, ShoppingBasket, Store as StoreIcon, Users, Receipt, TrendingUp, PackageCheck, CreditCard } from "lucide-react";
 import CustomersPage from "./CustomersPage";
 import SalesPage from "./SalesPage";
 import ReportsPage from "./ReportsPage";
 import LowStockPage from "./LowStockPage";
 import InventoryPage from "./InventoryPage";
+import BillingPage from "./BillingPage";
 
 type Store = { id: string; name: string; slug: string; currency: string; role: string; status: string };
 type Product = { id: string; sku: string; barcode?: string | null; name: string; unit: string; salePrice: string | number; costPrice?: string | number | null; stockQuantity: string | number; lowStockAt: string | number; category?: { name: string } | null };
@@ -33,7 +34,7 @@ export default function App() {
   const [userId, setUserId] = useState<string | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
   const [storeId, setStoreId] = useState("");
-  const [activeSection, setActiveSection] = useState<"products" | "customers" | "sales" | "reports" | "low-stock" | "inventory">("products");
+  const [activeSection, setActiveSection] = useState<"products" | "customers" | "sales" | "reports" | "low-stock" | "inventory" | "billing">("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -152,13 +153,14 @@ export default function App() {
       <button className={`nav-item ${activeSection === "customers" ? "active" : ""}`} onClick={() => setActiveSection("customers")}><Users size={19} /> العملاء</button>
       {(selectedStore?.role === "STORE_OWNER" || selectedStore?.role === "STORE_MANAGER" || selectedStore?.role === "CASHIER") && <button className={`nav-item ${activeSection === "sales" ? "active" : ""}`} onClick={() => setActiveSection("sales")}><Receipt size={19} /> المبيعات والفواتير</button>}
       {(selectedStore?.role === "STORE_OWNER" || selectedStore?.role === "STORE_MANAGER") && <button className={`nav-item ${activeSection === "reports" ? "active" : ""}`} onClick={() => setActiveSection("reports")}><TrendingUp size={19} /> التقارير اليومية</button>}
+      {(selectedStore?.role === "STORE_OWNER" || selectedStore?.role === "STORE_MANAGER") && <button className={`nav-item ${activeSection === "billing" ? "active" : ""}`} onClick={() => setActiveSection("billing")}><CreditCard size={19} /> الباقات والإضافات</button>}
       {(selectedStore?.role === "STORE_OWNER" || selectedStore?.role === "STORE_MANAGER" || selectedStore?.role === "INVENTORY_STAFF") && <button className={`nav-item ${activeSection === "inventory" ? "active" : ""}`} onClick={() => setActiveSection("inventory")}><PackageCheck size={19} /> حركات المخزون</button>}
       {(selectedStore?.role === "STORE_OWNER" || selectedStore?.role === "STORE_MANAGER" || selectedStore?.role === "INVENTORY_STAFF") && <button className={`nav-item ${activeSection === "low-stock" ? "active" : ""}`} onClick={() => setActiveSection("low-stock")}><CircleAlert size={19} /> تنبيهات المخزون</button>}
       <div className="side-caption">تظهر البيانات بحسب صلاحيات عضويتك في المتجر المحدد.</div>
       <div className="sidebar-bottom"><div className="avatar">{(selectedStore?.name || "م").slice(0, 1)}</div><div className="account-name"><strong>{selectedStore?.name || "لا يوجد متجر"}</strong><small>{selectedStore?.role || "حساب مسجل"}</small></div><button className="icon-button" title="تسجيل الخروج" onClick={() => void logout()} disabled={busy}><LogOut size={17} /></button></div>
     </aside>
     <main className="main-panel">
-      <header className="topbar"><div><span className="eyebrow">لوحة التحكم</span><h1>{({ products: "المنتجات والمخزون", customers: "العملاء", sales: "المبيعات والفواتير", reports: "التقارير اليومية", "low-stock": "تنبيهات المخزون المنخفض", inventory: "حركات المخزون" })[activeSection]}</h1></div><div className="top-actions">
+      <header className="topbar"><div><span className="eyebrow">لوحة التحكم</span><h1>{({ products: "المنتجات والمخزون", customers: "العملاء", sales: "المبيعات والفواتير", reports: "التقارير اليومية", "low-stock": "تنبيهات المخزون المنخفض", inventory: "حركات المخزون", billing: "الباقات والاشتراكات" })[activeSection]}</h1></div><div className="top-actions">
         <label className="store-select"><StoreIcon size={17} /><select aria-label="اختيار المتجر" value={storeId} onChange={(e) => { setStoreId(e.target.value); setActiveSection("products"); }}><option value="">اختر متجرًا</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select><ChevronDown size={15} /></label>
         <button className="icon-button refresh" aria-label="تحديث البيانات" onClick={() => void loadProducts(storeId).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "تعذر التحديث."))}><RefreshCw size={17} /></button>
       </div></header>
@@ -195,6 +197,7 @@ export default function App() {
         {activeSection === "customers" && selectedStore && <CustomersPage storeId={selectedStore.id} currency={selectedStore.currency} />}
         {activeSection === "sales" && selectedStore && (selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER" || selectedStore.role === "CASHIER") && <SalesPage storeId={selectedStore.id} currency={selectedStore.currency} canReturn={selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER"} />}
         {activeSection === "reports" && selectedStore && (selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER") && <ReportsPage storeId={selectedStore.id} />}
+        {activeSection === "billing" && selectedStore && (selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER") && <BillingPage storeId={selectedStore.id} />}
         {activeSection === "low-stock" && selectedStore && (selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER" || selectedStore.role === "INVENTORY_STAFF") && <LowStockPage storeId={selectedStore.id} />}
         {activeSection === "inventory" && selectedStore && (selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER" || selectedStore.role === "INVENTORY_STAFF") && <InventoryPage storeId={selectedStore.id} />}
       </>}
