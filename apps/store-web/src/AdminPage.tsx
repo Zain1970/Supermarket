@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { BadgeCheck, CircleAlert, CreditCard, RefreshCw, ShieldCheck, Sparkles, X } from "lucide-react";
+import { BadgeCheck, CircleAlert, CreditCard, Plus, RefreshCw, ShieldCheck, Sparkles, X } from "lucide-react";
 
 type Payment = { id: string; purpose: "SUBSCRIPTION" | "ADDON"; purposeReference: string; amount: string | number; currency: string; method: string; status: string; note?: string | null; createdAt: string; store: { id: string; name: string; slug: string } };
 type Plan = { id: string; code: string; name: string; price: string | number; currency: string; billingCycle: string; isActive: boolean };
@@ -30,6 +30,10 @@ export default function AdminPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [total, setTotal] = useState(0);
+  const [showPlanForm, setShowPlanForm] = useState(false);
+  const [showAddonForm, setShowAddonForm] = useState(false);
+  const [planForm, setPlanForm] = useState({ code: "", name: "", description: "", price: "0", currency: "YER", billingCycle: "MONTHLY", trialDays: "0" });
+  const [addonForm, setAddonForm] = useState({ code: "", name: "", description: "", price: "0", currency: "YER", billingCycle: "MONTHLY", version: "1.0.0", status: "DRAFT", minimumPlanCode: "" });
 
   async function loadPayments(nextStatus = status) {
     setLoading(true); setError("");
@@ -51,6 +55,30 @@ export default function AdminPage() {
   useEffect(() => { void loadCatalog(); }, []);
   useEffect(() => { void loadPayments(status); }, [status]);
 
+  async function createPlan(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusyId("create-plan"); setError(""); setNotice("");
+    try {
+      await api("/admin/plans", { method: "POST", body: JSON.stringify({ code: planForm.code.trim().toLowerCase(), name: planForm.name.trim(), price: planForm.price, currency: planForm.currency, billingCycle: planForm.billingCycle, trialDays: Number(planForm.trialDays), ...(planForm.description.trim() ? { description: planForm.description.trim() } : {}), isActive: true }) });
+      setNotice("تم إنشاء الباقة بنجاح."); setPlanForm({ code: "", name: "", description: "", price: "0", currency: "YER", billingCycle: "MONTHLY", trialDays: "0" }); setShowPlanForm(false); await loadCatalog();
+    } catch (e) { setError(e instanceof Error ? e.message : "تعذر إنشاء الباقة."); } finally { setBusyId(""); }
+  }
+  async function createAddon(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusyId("create-addon"); setError(""); setNotice("");
+    try {
+      await api("/admin/addons", { method: "POST", body: JSON.stringify({ code: addonForm.code.trim().toUpperCase(), name: addonForm.name.trim(), price: addonForm.price, currency: addonForm.currency, billingCycle: addonForm.billingCycle, version: addonForm.version.trim(), status: addonForm.status, ...(addonForm.description.trim() ? { description: addonForm.description.trim() } : {}), ...(addonForm.minimumPlanCode.trim() ? { minimumPlanCode: addonForm.minimumPlanCode.trim().toLowerCase() } : {}) }) });
+      setNotice("تم إنشاء الإضافة بنجاح."); setAddonForm({ code: "", name: "", description: "", price: "0", currency: "YER", billingCycle: "MONTHLY", version: "1.0.0", status: "DRAFT", minimumPlanCode: "" }); setShowAddonForm(false); await loadCatalog();
+    } catch (e) { setError(e instanceof Error ? e.message : "تعذر إنشاء الإضافة."); } finally { setBusyId(""); }
+  }
+  async function togglePlan(plan: Plan) {
+    setBusyId("plan:" + plan.id); setError(""); setNotice("");
+    try { await api("/admin/plans/" + encodeURIComponent(plan.id), { method: "PATCH", body: JSON.stringify({ isActive: !plan.isActive }) }); setNotice("تم تحديث حالة الباقة."); await loadCatalog(); }
+    catch (e) { setError(e instanceof Error ? e.message : "تعذر تحديث الباقة."); } finally { setBusyId(""); }
+  }
+  async function toggleAddon(addon: Addon) {
+    const status = addon.status === "AVAILABLE" ? "RETIRED" : "AVAILABLE"; setBusyId("addon:" + addon.id); setError(""); setNotice("");
+    try { await api("/admin/addons/" + encodeURIComponent(addon.id), { method: "PATCH", body: JSON.stringify({ status }) }); setNotice(status === "AVAILABLE" ? "تم إتاحة الإضافة." : "تم إيقاف إتاحة الإضافة."); await loadCatalog(); }
+    catch (e) { setError(e instanceof Error ? e.message : "تعذر تحديث الإضافة."); } finally { setBusyId(""); }
+  }
   async function confirmPayment(payment: Payment) {
     setBusyId(payment.id); setError(""); setNotice("");
     try {
