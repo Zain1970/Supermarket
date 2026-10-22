@@ -149,15 +149,15 @@ export default function App() {
       <div className="side-label">مساحة العمل</div>
       <button className={`nav-item ${activeSection === "products" ? "active" : ""}`} onClick={() => setActiveSection("products")}><Boxes size={19} /> المنتجات والمخزون</button>
       <button className={`nav-item ${activeSection === "customers" ? "active" : ""}`} onClick={() => setActiveSection("customers")}><Users size={19} /> العملاء</button>
-      <button className={`nav-item ${activeSection === "sales" ? "active" : ""}`} onClick={() => setActiveSection("sales")}><Receipt size={19} /> المبيعات والفواتير</button>
-      <button className={`nav-item ${activeSection === "reports" ? "active" : ""}`} onClick={() => setActiveSection("reports")}><TrendingUp size={19} /> التقارير اليومية</button>
+      {(selectedStore?.role === "STORE_OWNER" || selectedStore?.role === "STORE_MANAGER" || selectedStore?.role === "CASHIER") && <button className={`nav-item ${activeSection === "sales" ? "active" : ""}`} onClick={() => setActiveSection("sales")}><Receipt size={19} /> المبيعات والفواتير</button>}
+      {(selectedStore?.role === "STORE_OWNER" || selectedStore?.role === "STORE_MANAGER") && <button className={`nav-item ${activeSection === "reports" ? "active" : ""}`} onClick={() => setActiveSection("reports")}><TrendingUp size={19} /> التقارير اليومية</button>}
       {(selectedStore?.role === "STORE_OWNER" || selectedStore?.role === "STORE_MANAGER" || selectedStore?.role === "INVENTORY_STAFF") && <button className={`nav-item ${activeSection === "low-stock" ? "active" : ""}`} onClick={() => setActiveSection("low-stock")}><CircleAlert size={19} /> تنبيهات المخزون</button>
       <div className="side-caption">تظهر البيانات بحسب صلاحيات عضويتك في المتجر المحدد.</div>
       <div className="sidebar-bottom"><div className="avatar">{(selectedStore?.name || "م").slice(0, 1)}</div><div className="account-name"><strong>{selectedStore?.name || "لا يوجد متجر"}</strong><small>{selectedStore?.role || "حساب مسجل"}</small></div><button className="icon-button" title="تسجيل الخروج" onClick={() => void logout()} disabled={busy}><LogOut size={17} /></button></div>
     </aside>
     <main className="main-panel">
       <header className="topbar"><div><span className="eyebrow">لوحة التحكم</span><h1>{({ products: "المنتجات والمخزون", customers: "العملاء", sales: "المبيعات والفواتير", reports: "التقارير اليومية", "low-stock": "تنبيهات المخزون المنخفض" })[activeSection]}</h1></div><div className="top-actions">
-        <label className="store-select"><StoreIcon size={17} /><select aria-label="اختيار المتجر" value={storeId} onChange={(e) => setStoreId(e.target.value)}><option value="">اختر متجرًا</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select><ChevronDown size={15} /></label>
+        <label className="store-select"><StoreIcon size={17} /><select aria-label="اختيار المتجر" value={storeId} onChange={(e) => { setStoreId(e.target.value); setActiveSection("products"); }}><option value="">اختر متجرًا</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select><ChevronDown size={15} /></label>
         <button className="icon-button refresh" aria-label="تحديث البيانات" onClick={() => void loadProducts(storeId).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "تعذر التحديث."))}><RefreshCw size={17} /></button>
       </div></header>
       {stores.length === 0 ? <section className="empty-state"><div className="empty-icon"><StoreIcon /></div><h2>لا توجد متاجر مرتبطة بحسابك</h2><p>لم نجد متجرًا يمكنك الوصول إليه. تواصل مع مسؤول المنصة لإضافة عضويتك.</p></section> : <>
@@ -191,8 +191,8 @@ export default function App() {
           <div className="panel-foot"><span>عرض أول 100 منتج نشط. يمكن توسيع الجدول إلى صفحات في المرحلة التالية.</span><span className="secure-note"><ShieldCheck size={15} /> الوصول محمي من الخادم</span></div>
         </section>}
         {activeSection === "customers" && selectedStore && <CustomersPage storeId={selectedStore.id} currency={selectedStore.currency} />}
-        {activeSection === "sales" && selectedStore && <SalesPage storeId={selectedStore.id} currency={selectedStore.currency} />}
-        {activeSection === "reports" && selectedStore && <ReportsPage storeId={selectedStore.id} />}
+        {activeSection === "sales" && selectedStore && (selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER" || selectedStore.role === "CASHIER") && <SalesPage storeId={selectedStore.id} currency={selectedStore.currency} />}
+        {activeSection === "reports" && selectedStore && (selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER") && <ReportsPage storeId={selectedStore.id} />}
         {activeSection === "low-stock" && selectedStore && (selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER" || selectedStore.role === "INVENTORY_STAFF") && <LowStockPage storeId={selectedStore.id} />}
       </>}
       <footer className="footer"><span>Supermarket Platform</span><span>واجهة أولية قيد التطوير</span></footer>
