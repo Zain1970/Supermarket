@@ -5,7 +5,9 @@ type Sale = { id: string; invoiceNumber: string; status: string; paymentStatus: 
 type Product = { id: string; sku: string; name: string; unit: string; salePrice: string | number; stockQuantity: string | number; status: string };
 type Customer = { id: string; name: string; phone?: string | null; creditLimit: string | number; creditBalance: string | number };
 type CartLine = { productId: string; quantity: string };
-type Props = { storeId: string; currency: string };
+type SaleItem = { id: string; productName: string; sku: string; quantity: string | number; unitPrice: string | number; lineTotal: string | number };
+type SaleDetail = { id: string; invoiceNumber: string; status: string; items: SaleItem[] };
+type Props = { storeId: string; currency: string; canReturn: boolean };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, { credentials: "same-origin", ...init, headers: { ...(init?.body ? { "Content-Type": "application/json" } : {}), ...init?.headers } });
@@ -19,7 +21,7 @@ const money = (v: string | number, currency: string) => `${Number(v).toLocaleStr
 const paymentLabel: Record<string, string> = { PAID: "مدفوعة", PARTIAL: "مدفوعة جزئيًا", UNPAID: "غير مدفوعة" };
 const methodLabel: Record<string, string> = { CASH: "نقدًا", CARD: "بطاقة", TRANSFER: "تحويل", CREDIT: "آجل" };
 
-export default function SalesPage({ storeId, currency }: Props) {
+export default function SalesPage({ storeId, currency, canReturn }: Props) {
   const [sales, setSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -37,6 +39,11 @@ export default function SalesPage({ storeId, currency }: Props) {
   const [paidAmount, setPaidAmount] = useState("");
   const [note, setNote] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [returnSale, setReturnSale] = useState<SaleDetail | null>(null);
+  const [returnQuantities, setReturnQuantities] = useState<Record<string, string>>({});
+  const [returnReason, setReturnReason] = useState("");
+  const [returnNote, setReturnNote] = useState("");
+  const [returnBusy, setReturnBusy] = useState(false);
 
   const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
   const subtotal = useMemo(() => cart.reduce((sum, line) => sum + Number(productById.get(line.productId)?.salePrice || 0) * Number(line.quantity), 0), [cart, productById]);
@@ -80,6 +87,35 @@ export default function SalesPage({ storeId, currency }: Props) {
   function resetSale() {
     setCart([]); setCustomerId(""); setPaymentMethod("CASH"); setDiscountAmount("0"); setPaidAmount(""); setNote("");
   }
+  async function openReturn(saleId: string) {
+    setError(""); setNotice("");
+    try {
+      const result = await api<{ sale: SaleDetail }>("/stores/" + encodeURIComponent(storeId) + "/sales/" + encodeURIComponent(saleId));
+      setReturnSale(result.sale);
+      setReturnQuantities(Object.fromEntries(result.sale.items.map((item) => [item.id, "0"])));
+      setReturnReason(""); setReturnNote("");
+    } catch (e) { setError(e instanceof Error ? e.message : "تعذر تحميل تفاصيل الفاتورة."); }
+  }
+
+  async function createReturn(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!returnSale) return;
+    const items = returnSale.items.filter((item) => Number(returnQuantities[item.id]) > 0).map((item) => ({ saleItemId: item.id, quantity: returnQuantities[item.id] }));
+    if (!items.length || returnReason.trim().length < 3) { setError("اختر كمية مرتجعة واحدة على الأقل وأدخل سببًا واضحًا."); return; }
+    setReturnBusy(true); setError(""); setNotice("");
+    try {
+      const result = await api<{ saleReturn: { returnNumber: string; totalAmount: string | number }; replayed?: boolean }>("/stores/" + encodeURIComponent(storeId) + "/sales/" + encodeURIComponent(returnSale.id) + "/returns", {
+        method: "POST",
+        headers: { "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({ reason: returnReason.trim(), ...(returnNote.trim() ? { note: returnNote.trim() } : {}), items })
+      });
+      setNotice("تم تسجيل المرتجع " + result.saleReturn.returnNumber + " بقيمة " + money(result.saleReturn.totalAmount, currency) + " وإعادة الكميات إلى المخزون. لا يتضمن ذلك ردًا نقديًا.");
+      setReturnSale(null); setReturnQuantities({}); setReturnReason(""); setReturnNote("");
+      await Promise.all([loadSales(), loadCatalog()]);
+    } catch (e) { setError(e instanceof Error ? e.message : "تعذر تسجيل المرتجع."); }
+    finally { setReturnBusy(false); }
+  }
+
   async function createSale(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!cart.length) { setError("أضف منتجًا واحدًا على الأقل إلى الفاتورة."); return; }
@@ -112,6 +148,15 @@ export default function SalesPage({ storeId, currency }: Props) {
     <div className="panel-heading"><div><h2>المبيعات والفواتير</h2><p>تسجيل بيع وتحديث المخزون عبر معاملة الخادم الآمنة</p></div><div className="sale-actions"><button className="secondary" onClick={() => { void loadSales(); void loadCatalog(); }}><RefreshCw size={16}/> تحديث</button><button className="primary" onClick={() => { setShowSaleForm((v) => !v); setError(""); setNotice(""); }} disabled={catalogLoading}><ShoppingCart size={16}/> بيع جديد</button></div></div>
     {error && <div className="alert error"><CircleAlert size={17}/>{error}</div>}
     {notice && <div className="alert success">{notice}</div>}
+    {returnSale && canReturn && <form className="sale-form return-form" onSubmit={createReturn}>
+      <div className="form-title sale-form-title"><div><h3>مرتجع مخزني · {returnSale.invoiceNumber}</h3><p>يُعاد المخزون فقط. لا تُنفّذ هذه العملية استردادًا نقديًا أو تعديلًا على الدفعات.</p></div><button type="button" className="icon-button" aria-label="إغلاق نموذج المرتجع" onClick={() => setReturnSale(null)}><X size={16}/></button></div>
+      <div className="table-wrap"><table><thead><tr><th>الصنف المباع</th><th>الكمية المباعة</th><th>سعر الوحدة</th><th>كمية المرتجع</th></tr></thead><tbody>
+        {returnSale.items.map((item) => <tr key={item.id}><td><strong>{item.productName}</strong><small className="contact-sub">{item.sku}</small></td><td>{Number(item.quantity).toLocaleString("ar", { maximumFractionDigits: 3 })}</td><td>{money(item.unitPrice, currency)}</td><td><input className="cart-quantity" aria-label={"كمية المرتجع من " + item.productName} type="number" min="0" max={Number(item.quantity)} step="0.001" value={returnQuantities[item.id] || "0"} onChange={(e) => setReturnQuantities((current) => ({ ...current, [item.id]: e.target.value }))}/></td></tr>)}
+      </tbody></table></div>
+      <div className="sale-details-grid"><label>سبب المرتجع *<input required minLength={3} maxLength={500} value={returnReason} onChange={(e) => setReturnReason(e.target.value)} placeholder="مثال: منتج تالف أو كمية زائدة"/></label><label>ملاحظة إضافية<input maxLength={1000} value={returnNote} onChange={(e) => setReturnNote(e.target.value)} placeholder="اختياري"/></label></div>
+      <div className="form-actions sale-form-actions"><button type="button" className="secondary" onClick={() => setReturnSale(null)}>إلغاء</button><button className="primary" disabled={returnBusy}>{returnBusy ? "جارٍ تسجيل المرتجع…" : "تأكيد المرتجع وإعادة المخزون"}</button></div>
+      <p className="sale-security-note"><AlertTriangle size={14}/> يرفض الخادم تجاوز الكمية المتبقية بعد المرتجعات السابقة ويسجل الحركة والتدقيق ضمن معاملة واحدة.</p>
+    </form>}
     {showSaleForm && <form className="sale-form" onSubmit={createSale}>
       <div className="form-title sale-form-title"><div><h3>فاتورة بيع جديدة</h3><p>يُعاد احتساب الأسعار والمخزون وحد الائتمان في الخادم قبل الحفظ.</p></div><span>{catalogLoading ? "جارٍ تحميل البيانات…" : `${products.length.toLocaleString("ar")} منتج متاح`}</span></div>
       <div className="sale-add-row">
@@ -138,9 +183,9 @@ export default function SalesPage({ storeId, currency }: Props) {
       <p className="sale-security-note"><AlertTriangle size={14}/> لا يُعتمد رصيد المخزون المعروض وحده؛ يتحقق الخادم من الكميات الفعلية وحد الائتمان قبل إتمام البيع.</p>
     </form>}
     <div className="table-tools"><span>{sales.length.toLocaleString("ar")} فاتورة محمّلة</span><span>{loading ? "جارٍ التحميل…" : "بيانات مباشرة"}</span></div>
-    <div className="table-wrap"><table><thead><tr><th>رقم الفاتورة</th><th>العميل</th><th>التاريخ</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>التحصيل</th></tr></thead><tbody>
-      {sales.map((sale) => <tr key={sale.id}><td><div className="product-name"><div className="product-thumb"><Receipt size={17}/></div><div><strong>{sale.invoiceNumber}</strong><small>{sale._count.items.toLocaleString("ar")} بند · {methodLabel[sale.paymentMethod] || sale.paymentMethod}</small></div></div></td><td>{sale.customer?.name || "عميل نقدي"}<small className="contact-sub">{sale.customer?.phone || ""}</small></td><td>{new Date(sale.createdAt).toLocaleDateString("ar", { year: "numeric", month: "short", day: "numeric" })}</td><td className="price-cell">{money(sale.totalAmount, currency)}</td><td>{money(sale.paidAmount, currency)}</td><td>{money(sale.balanceDue, currency)}</td><td><span className={sale.paymentStatus === "PAID" ? "status good" : "status low"}><span/>{paymentLabel[sale.paymentStatus] || sale.paymentStatus}</span></td></tr>)}
-      {!loading && sales.length === 0 && <tr><td colSpan={7}><div className="table-empty"><Receipt size={25}/><strong>لا توجد فواتير لعرضها</strong><span>سجّل أول عملية بيع من الزر أعلاه.</span></div></td></tr>}
+    <div className="table-wrap"><table><thead><tr><th>رقم الفاتورة</th><th>العميل</th><th>التاريخ</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>التحصيل</th>{canReturn && <th>المرتجع</th>}</tr></thead><tbody>
+      {sales.map((sale) => <tr key={sale.id}><td><div className="product-name"><div className="product-thumb"><Receipt size={17}/></div><div><strong>{sale.invoiceNumber}</strong><small>{sale._count.items.toLocaleString("ar")} بند · {methodLabel[sale.paymentMethod] || sale.paymentMethod}</small></div></div></td><td>{sale.customer?.name || "عميل نقدي"}<small className="contact-sub">{sale.customer?.phone || ""}</small></td><td>{new Date(sale.createdAt).toLocaleDateString("ar", { year: "numeric", month: "short", day: "numeric" })}</td><td className="price-cell">{money(sale.totalAmount, currency)}</td><td>{money(sale.paidAmount, currency)}</td><td>{money(sale.balanceDue, currency)}</td><td><span className={sale.paymentStatus === "PAID" ? "status good" : "status low"}><span/>{paymentLabel[sale.paymentStatus] || sale.paymentStatus}</span></td>{canReturn && <td>{sale.status === "COMPLETED" ? <button className="secondary return-action" onClick={() => void openReturn(sale.id)} type="button">مرتجع</button> : "—"}</td>}</tr>)}
+      {!loading && sales.length === 0 && <tr><td colSpan={canReturn ? 8 : 7}><div className="table-empty"><Receipt size={25}/><strong>لا توجد فواتير لعرضها</strong><span>سجّل أول عملية بيع من الزر أعلاه.</span></div></td></tr>}
     </tbody></table></div><div className="panel-foot"><span>عرض آخر 100 فاتورة. أسعار البيع والمخزون وحد الائتمان تُتحقق من الخادم عند الحفظ.</span></div>
   </section>;
 }
