@@ -16,6 +16,19 @@ import { billingRouter } from "./billing/routes.js";
 export const app = express();
 
 app.disable("x-powered-by");
+
+// Baseline headers for the JSON API. TLS/HSTS should be configured at the
+// HTTPS ingress so deployments behind a reverse proxy are handled correctly.
+app.use((_request, response, next) => {
+  response.setHeader("X-Content-Type-Options", "nosniff");
+  response.setHeader("X-Frame-Options", "DENY");
+  response.setHeader("Referrer-Policy", "no-referrer");
+  response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  response.setHeader("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+  response.setHeader("Cache-Control", "no-store");
+  next();
+});
+
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 
