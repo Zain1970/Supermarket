@@ -18,7 +18,6 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 const money = (v: string | number, currency: string) => `${Number(v).toLocaleString("ar", { maximumFractionDigits: 2 })} ${currency === "YER" ? "ر.ي" : currency}`;
 const cycleLabel: Record<string, string> = { MONTHLY: "شهريًا", QUARTERLY: "كل 3 أشهر", YEARLY: "سنويًا", CUSTOM: "حسب الاتفاق" };
 const statusLabel: Record<string, string> = { TRIALING: "تجربة مجانية", PENDING_PAYMENT: "بانتظار تأكيد الدفع", ACTIVE: "نشط", PAST_DUE: "متأخر", EXPIRED: "منتهي", CANCELLED: "ملغي", SUSPENDED: "موقوف", PENDING: "بانتظار المراجعة", AVAILABLE: "متاح" };
-const methodLabel: Record<string, string> = { CASH: "نقدًا", BANK_TRANSFER: "تحويل بنكي", OTHER: "وسيلة أخرى" };
 
 export default function BillingPage({ storeId }: Props) {
   const [plans, setPlans] = useState<Plan[]>([]);
