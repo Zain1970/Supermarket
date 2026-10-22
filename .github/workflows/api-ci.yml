@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "apps/api/**"
+      - "apps/store-web/**"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/api-ci.yml"
@@ -36,5 +37,9 @@ jobs:
         run: npm run typecheck
       - name: Test
         run: npm test
-      - name: Build
+      - name: Build API
         run: npm run build
+      - name: Typecheck store web
+        run: npm run typecheck:store-web
+      - name: Build store web
+        run: npm run build:store-web

@@ -15,10 +15,13 @@
 ## ما هو موجود حاليًا
 
 - تسجيل الدخول والخروج والجلسة الحالية مع جلسات مخزنة كـ SHA-256 hash وcookie آمن.
+- واجهة متجر عربية RTL أولية باستخدام React + Vite: المنتجات، العملاء، نقطة البيع والفواتير، التقارير اليومية، تنبيهات المخزون، سجل الحركات وتسويات المخزون، المرتجعات المخزنية، وإدارة الباقات والإضافات للمالك والمدير، ومساحة Super Admin لمراجعة المدفوعات.
 - أمر CLI محدود لإنشاء مسؤول المنصة الأول.
 - مخطط Prisma للمتاجر والعضويات والتدقيق والمنتجات والمخزون والباقات والاشتراكات والإضافات والمدفوعات والجلسات.
 - API محمي لعرض المنتجات وإنشاءها.
-- API محمي لحركات المخزون، بمعاملة Serializable وسجل تدقيق ومفتاح Idempotency ومنع المخزون السالب افتراضيًا.\n- API لإدارة العملاء والبيع والفواتير مع حساب الخصم والمدفوع والمتبقي وتحديث المخزون داخل معاملة واحدة.\n- تسجيل دفعات لاحقة للفواتير بمفتاح Idempotency، وتحديث حالة الفاتورة ورصيد ائتمان العميل وسجل التدقيق.
+- API محمي لحركات المخزون، بمعاملة Serializable وسجل تدقيق ومفتاح Idempotency ومنع المخزون السالب افتراضيًا.
+- API لإدارة العملاء والبيع والفواتير مع حساب الخصم والمدفوع والمتبقي وتحديث المخزون داخل معاملة واحدة.
+- تسجيل دفعات لاحقة للفواتير بمفتاح Idempotency، وتحديث حالة الفاتورة ورصيد ائتمان العميل وسجل التدقيق.
 - كتالوج الباقات وطلب الاشتراك بالدفع اليدوي وتجربة مجانية لمرة واحدة لكل متجر عند توفرها في الباقة.
 - كتالوج الإضافات وطلب شراء بالدفع اليدوي.
 - واجهات Super Admin لإدارة الباقات والإضافات، ومراجعة المدفوعات وتأكيدها أو رفضها مع تسجيل السبب.
@@ -48,7 +51,8 @@ npm run dev:api
 ```bash
 export BOOTSTRAP_ADMIN_EMAIL=admin@example.com
 read -r -s -p "كلمة مرور المسؤول الأول: " BOOTSTRAP_ADMIN_PASSWORD
-printf '\n'
+printf '
+'
 export BOOTSTRAP_ADMIN_PASSWORD
 npm run bootstrap:admin --workspace @supermarket/api
 unset BOOTSTRAP_ADMIN_PASSWORD
@@ -61,6 +65,9 @@ unset BOOTSTRAP_ADMIN_PASSWORD
 - `GET /health`
 - `POST /auth/login` · `GET /auth/me` · `POST /auth/logout`
 - `GET /stores/:storeId/products` · `POST /stores/:storeId/products`
+- `GET /stores/:storeId/customers` · `POST /stores/:storeId/customers`
+- `GET /stores/:storeId/sales` · `POST /stores/:storeId/sales` · `GET /stores/:storeId/sales/:saleId` · `POST /stores/:storeId/sales/:saleId/payments` · `POST /stores/:storeId/sales/:saleId/returns`
+- `GET /stores/:storeId/reports/daily` · `GET /stores/:storeId/reports/low-stock`
 - `GET /stores/:storeId/stock-movements` · `POST /stores/:storeId/stock-movements`
 - `GET /stores/:storeId/plans`
 - `POST /stores/:storeId/subscription/purchase`

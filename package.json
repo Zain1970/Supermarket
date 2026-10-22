@@ -9,9 +9,12 @@
   ],
   "scripts": {
     "dev:api": "npm run dev --workspace @supermarket/api",
+    "dev:store-web": "npm run dev --workspace @supermarket/store-web",
     "build": "npm run build --workspace @supermarket/api",
+    "build:store-web": "npm run build --workspace @supermarket/store-web",
     "test": "npm run test --workspace @supermarket/api",
-    "typecheck": "npm run typecheck --workspace @supermarket/api"
+    "typecheck": "npm run typecheck --workspace @supermarket/api",
+    "typecheck:store-web": "npm run typecheck --workspace @supermarket/store-web"
   },
   "engines": {
     "node": ">=20"
