@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Activity, ArrowDownLeft, Boxes, Check, ChevronDown, CircleAlert, LogOut, PackagePlus, RefreshCw, Search, ShieldCheck, ShoppingBasket, Store as StoreIcon } from "lucide-react";
+import { Activity, ArrowDownLeft, Boxes, Check, ChevronDown, CircleAlert, LogOut, PackagePlus, RefreshCw, Search, ShieldCheck, ShoppingBasket, Store as StoreIcon, Users, Receipt, TrendingUp } from "lucide-react";
+import CustomersPage from "./CustomersPage";
+import SalesPage from "./SalesPage";
+import ReportsPage from "./ReportsPage";
 
 type Store = { id: string; name: string; slug: string; currency: string; role: string; status: string };
 type Product = { id: string; sku: string; barcode?: string | null; name: string; unit: string; salePrice: string | number; costPrice?: string | number | null; stockQuantity: string | number; lowStockAt: string | number; category?: { name: string } | null };
@@ -28,6 +31,7 @@ export default function App() {
   const [userId, setUserId] = useState<string | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
   const [storeId, setStoreId] = useState("");
+  const [activeSection, setActiveSection] = useState<"products" | "customers" | "sales" | "reports">("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -142,25 +146,30 @@ export default function App() {
     <aside className="sidebar">
       <div className="brand-lockup"><div className="brand-mark"><ShoppingBasket /></div><span>سوبرماركت<small>إدارة المتجر</small></span></div>
       <div className="side-label">مساحة العمل</div>
-      <button className="nav-item active"><Boxes size={19} /> المنتجات والمخزون</button>
+      <button className={`nav-item ${activeSection === "products" ? "active" : ""}`} onClick={() => setActiveSection("products")}><Boxes size={19} /> المنتجات والمخزون</button>
+      <button className={`nav-item ${activeSection === "customers" ? "active" : ""}`} onClick={() => setActiveSection("customers")}><Users size={19} /> العملاء</button>
+      <button className={`nav-item ${activeSection === "sales" ? "active" : ""}`} onClick={() => setActiveSection("sales")}><Receipt size={19} /> المبيعات والفواتير</button>
+      <button className={`nav-item ${activeSection === "reports" ? "active" : ""}`} onClick={() => setActiveSection("reports")}><TrendingUp size={19} /> التقارير اليومية</button>
       <div className="side-caption">تظهر البيانات بحسب صلاحيات عضويتك في المتجر المحدد.</div>
       <div className="sidebar-bottom"><div className="avatar">{(selectedStore?.name || "م").slice(0, 1)}</div><div className="account-name"><strong>{selectedStore?.name || "لا يوجد متجر"}</strong><small>{selectedStore?.role || "حساب مسجل"}</small></div><button className="icon-button" title="تسجيل الخروج" onClick={() => void logout()} disabled={busy}><LogOut size={17} /></button></div>
     </aside>
     <main className="main-panel">
-      <header className="topbar"><div><span className="eyebrow">لوحة التحكم</span><h1>المنتجات والمخزون</h1></div><div className="top-actions">
+      <header className="topbar"><div><span className="eyebrow">لوحة التحكم</span><h1>{({ products: "المنتجات والمخزون", customers: "العملاء", sales: "المبيعات والفواتير", reports: "التقارير اليومية" })[activeSection]}</h1></div><div className="top-actions">
         <label className="store-select"><StoreIcon size={17} /><select aria-label="اختيار المتجر" value={storeId} onChange={(e) => setStoreId(e.target.value)}><option value="">اختر متجرًا</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select><ChevronDown size={15} /></label>
         <button className="icon-button refresh" aria-label="تحديث البيانات" onClick={() => void loadProducts(storeId).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "تعذر التحديث."))}><RefreshCw size={17} /></button>
       </div></header>
       {stores.length === 0 ? <section className="empty-state"><div className="empty-icon"><StoreIcon /></div><h2>لا توجد متاجر مرتبطة بحسابك</h2><p>لم نجد متجرًا يمكنك الوصول إليه. تواصل مع مسؤول المنصة لإضافة عضويتك.</p></section> : <>
         {error && <div className="alert error"><CircleAlert size={18} />{error}</div>}
         {notice && <div className="alert success"><Check size={18} />{notice}</div>}
+        {activeSection === "products" && <>
         <section className="welcome-strip"><div className="welcome-icon"><Activity /></div><div><strong>مرحبًا بك في {selectedStore?.name || "متجرك"}</strong><p>هذه البيانات تُحمّل مباشرة من واجهة النظام وفق صلاحيات حسابك.</p></div><span className="live-pill"><span /> اتصال مباشر</span></section>
         <section className="stat-grid">
           <article className="stat-card"><div className="stat-icon violet"><Boxes /></div><span>المنتجات المعروضة</span><strong>{visibleProducts.length.toLocaleString("ar")}</strong><small>من المنتجات النشطة المحمّلة</small></article>
           <article className="stat-card"><div className="stat-icon amber"><CircleAlert /></div><span>تنبيهات المخزون</span><strong>{visibleProducts.filter((p) => Number(p.stockQuantity) <= Number(p.lowStockAt)).length.toLocaleString("ar")}</strong><small>بحسب حد المخزون لكل منتج</small></article>
           <article className="stat-card"><div className="stat-icon green"><ShieldCheck /></div><span>دورك في المتجر</span><strong className="role-value">{selectedStore?.role || "—"}</strong><small>محدد من عضويتك في الخادم</small></article>
         </section>
-        <section className="products-panel">
+        </>}
+        {activeSection === "products" && <section className="products-panel">
           <div className="panel-heading"><div><h2>قائمة المنتجات</h2><p>بحث سريع بالاسم أو رمز SKU أو الباركود</p></div><button className="primary" onClick={() => { setShowProductForm((v) => !v); setError(""); }} disabled={!selectedStore}><PackagePlus size={18} /> إضافة منتج</button></div>
           {showProductForm && <form className="product-form" onSubmit={createProduct}>
             <div className="form-title"><h3>منتج جديد</h3><span>الحقول المعلّمة مطلوبة</span></div>
@@ -178,7 +187,10 @@ export default function App() {
             {visibleProducts.length === 0 && <tr><td colSpan={5}><div className="table-empty"><Boxes size={26} /><strong>{query ? "لا توجد نتائج مطابقة" : "لا توجد منتجات لعرضها"}</strong><span>{query ? "جرّب كلمة بحث مختلفة." : "يمكنك إضافة أول منتج لهذا المتجر."}</span></div></td></tr>}
           </tbody></table></div>
           <div className="panel-foot"><span>عرض أول 100 منتج نشط. يمكن توسيع الجدول إلى صفحات في المرحلة التالية.</span><span className="secure-note"><ShieldCheck size={15} /> الوصول محمي من الخادم</span></div>
-        </section>
+        </section>}
+        {activeSection === "customers" && selectedStore && <CustomersPage storeId={selectedStore.id} currency={selectedStore.currency} />}
+        {activeSection === "sales" && selectedStore && <SalesPage storeId={selectedStore.id} currency={selectedStore.currency} />}
+        {activeSection === "reports" && selectedStore && <ReportsPage storeId={selectedStore.id} />}
       </>}
       <footer className="footer"><span>Supermarket Platform</span><span>واجهة أولية قيد التطوير</span></footer>
     </main>
