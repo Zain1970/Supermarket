@@ -12,6 +12,18 @@ test("GET /health returns service health without exposing secrets", async () => 
   assert.equal("DATABASE_URL" in response.body, false);
 });
 
+test("API responses include baseline security headers and disable caching", async () => {
+  const response = await request(app).get("/health");
+
+  assert.equal(response.headers["x-content-type-options"], "nosniff");
+  assert.equal(response.headers["x-frame-options"], "DENY");
+  assert.equal(response.headers["referrer-policy"], "no-referrer");
+  assert.equal(response.headers["permissions-policy"], "camera=(), microphone=(), geolocation=()");
+  assert.equal(response.headers["content-security-policy"], "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+  assert.equal(response.headers["cache-control"], "no-store");
+  assert.equal(response.headers["x-powered-by"], undefined);
+});
+
 test("unknown API routes return a safe Arabic error", async () => {
   const response = await request(app).get("/route-does-not-exist");
 
@@ -96,7 +108,6 @@ test("free trial API requires store authentication", async () => {
   assert.equal(response.body.error.code, "UNAUTHENTICATED");
 });
 
-
 test("customer API requires store authentication", async () => {
   const response = await request(app).get("/stores/store-a/customers");
 
@@ -130,7 +141,6 @@ test("low-stock report API requires store authentication", async () => {
   assert.equal(response.status, 401);
   assert.equal(response.body.error.code, "UNAUTHENTICATED");
 });
-
 
 test("sales return API requires store authentication", async () => {
   const response = await request(app).post("/stores/store-a/sales/sale-a/returns").set("Idempotency-Key", "return-key-0001").send({
