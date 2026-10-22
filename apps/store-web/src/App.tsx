@@ -193,7 +193,7 @@ export default function App() {
           <div className="panel-foot"><span>عرض أول 100 منتج نشط. يمكن توسيع الجدول إلى صفحات في المرحلة التالية.</span><span className="secure-note"><ShieldCheck size={15} /> الوصول محمي من الخادم</span></div>
         </section>}
         {activeSection === "customers" && selectedStore && <CustomersPage storeId={selectedStore.id} currency={selectedStore.currency} />}
-        {activeSection === "sales" && selectedStore && (selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER" || selectedStore.role === "CASHIER") && <SalesPage storeId={selectedStore.id} currency={selectedStore.currency} />}
+        {activeSection === "sales" && selectedStore && (selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER" || selectedStore.role === "CASHIER") && <SalesPage storeId={selectedStore.id} currency={selectedStore.currency} canReturn={selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER"} />}
         {activeSection === "reports" && selectedStore && (selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER") && <ReportsPage storeId={selectedStore.id} />}
         {activeSection === "low-stock" && selectedStore && (selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER" || selectedStore.role === "INVENTORY_STAFF") && <LowStockPage storeId={selectedStore.id} />}
         {activeSection === "inventory" && selectedStore && (selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER" || selectedStore.role === "INVENTORY_STAFF") && <InventoryPage storeId={selectedStore.id} />}
