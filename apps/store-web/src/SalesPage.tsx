@@ -44,6 +44,11 @@ export default function SalesPage({ storeId, currency, canReturn }: Props) {
   const [returnReason, setReturnReason] = useState("");
   const [returnNote, setReturnNote] = useState("");
   const [returnBusy, setReturnBusy] = useState(false);
+  const [paymentSale, setPaymentSale] = useState<Sale | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD" | "TRANSFER">("CASH");
+  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentBusy, setPaymentBusy] = useState(false);
 
   const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
   const subtotal = useMemo(() => cart.reduce((sum, line) => sum + Number(productById.get(line.productId)?.salePrice || 0) * Number(line.quantity), 0), [cart, productById]);
@@ -87,7 +92,32 @@ export default function SalesPage({ storeId, currency, canReturn }: Props) {
   function resetSale() {
     setCart([]); setCustomerId(""); setPaymentMethod("CASH"); setDiscountAmount("0"); setPaidAmount(""); setNote("");
   }
+  function openPayment(sale: Sale) {
+    setReturnSale(null); setPaymentSale(sale); setPaymentAmount(String(sale.balanceDue));
+    setPaymentMethod("CASH"); setPaymentReference(""); setError(""); setNotice("");
+  }
+
+  async function createPayment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!paymentSale) return;
+    const amount = Number(paymentAmount);
+    if (!Number.isFinite(amount) || amount <= 0 || amount > Number(paymentSale.balanceDue)) {
+      setError("أدخل مبلغًا موجبًا لا يتجاوز الرصيد المتبقي على الفاتورة."); return;
+    }
+    setPaymentBusy(true); setError(""); setNotice("");
+    try {
+      const result = await api<{ sale?: { invoiceNumber: string; balanceDue: string | number; paymentStatus: string }; replayed?: boolean }>("/stores/" + encodeURIComponent(storeId) + "/sales/" + encodeURIComponent(paymentSale.id) + "/payments", {
+        method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({ amount: paymentAmount, method: paymentMethod, ...(paymentReference.trim() ? { reference: paymentReference.trim() } : {}) })
+      });
+      setNotice("تم تسجيل الدفعة للفاتورة " + paymentSale.invoiceNumber + (result.sale ? "؛ المتبقي " + money(result.sale.balanceDue, currency) + "." : "."));
+      setPaymentSale(null); setPaymentAmount(""); setPaymentReference("");
+      await Promise.all([loadSales(), loadCatalog()]);
+    } catch (e) { setError(e instanceof Error ? e.message : "تعذر تسجيل الدفعة."); }
+    finally { setPaymentBusy(false); }
+  }
   async function openReturn(saleId: string) {
+    setPaymentSale(null);
     setError(""); setNotice("");
     try {
       const result = await api<{ sale: SaleDetail }>("/stores/" + encodeURIComponent(storeId) + "/sales/" + encodeURIComponent(saleId));
