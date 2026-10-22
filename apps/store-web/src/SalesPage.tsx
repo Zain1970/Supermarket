@@ -1,11 +1,18 @@
-import { useEffect, useState } from "react";
-import { CircleAlert, Receipt, RefreshCw } from "lucide-react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { AlertTriangle, CircleAlert, Plus, Receipt, RefreshCw, ShoppingCart, Trash2 } from "lucide-react";
 
 type Sale = { id: string; invoiceNumber: string; status: string; paymentStatus: string; totalAmount: string | number; paidAmount: string | number; balanceDue: string | number; paymentMethod: string; createdAt: string; customer?: { name: string; phone?: string | null } | null; _count: { items: number } };
+type Product = { id: string; sku: string; name: string; unit: string; salePrice: string | number; stockQuantity: string | number; status: string };
+type Customer = { id: string; name: string; phone?: string | null; creditLimit: string | number; creditBalance: string | number };
+type CartLine = { productId: string; quantity: string };
 type Props = { storeId: string; currency: string };
-async function api<T>(path: string): Promise<T> {
-  const response = await fetch(path, { credentials: "same-origin" });
-  if (!response.ok) { const body = await response.json().catch(() => ({})) as { error?: { message?: string } }; throw new Error(body.error?.message || "تعذر تحميل المبيعات."); }
+
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, { credentials: "same-origin", ...init, headers: { ...(init?.body ? { "Content-Type": "application/json" } : {}), ...init?.headers } });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { error?: { message?: string } };
+    throw new Error(body.error?.message || "تعذر تنفيذ الطلب.");
+  }
   return response.json() as Promise<T>;
 }
 const money = (v: string | number, currency: string) => `${Number(v).toLocaleString("ar", { maximumFractionDigits: 2 })} ${currency === "YER" ? "ر.ي" : currency}`;
@@ -14,17 +21,126 @@ const methodLabel: Record<string, string> = { CASH: "نقدًا", CARD: "بطا�
 
 export default function SalesPage({ storeId, currency }: Props) {
   const [sales, setSales] = useState<Sale[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
-  async function load() { setLoading(true); setError(""); try { const result = await api<{ sales: Sale[] }>(`/stores/${encodeURIComponent(storeId)}/sales?page=1&pageSize=100`); setSales(result.sales); } catch (e) { setError(e instanceof Error ? e.message : "تعذر تحميل المبيعات."); } finally { setLoading(false); } }
-  useEffect(() => { void load(); }, [storeId]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [showSaleForm, setShowSaleForm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [productId, setProductId] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const [customerId, setCustomerId] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD" | "TRANSFER" | "CREDIT">("CASH");
+  const [discountAmount, setDiscountAmount] = useState("0");
+  const [paidAmount, setPaidAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [cart, setCart] = useState<CartLine[]>([]);
+
+  const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
+  const subtotal = useMemo(() => cart.reduce((sum, line) => sum + Number(productById.get(line.productId)?.salePrice || 0) * Number(line.quantity), 0), [cart, productById]);
+  const total = Math.max(0, Math.round((subtotal - Number(discountAmount || 0) + Number.EPSILON) * 100) / 100);
+  const selectedProduct = productById.get(productId);
+
+  async function loadSales() {
+    setLoading(true); setError("");
+    try {
+      const result = await api<{ sales: Sale[] }>(`/stores/${encodeURIComponent(storeId)}/sales?page=1&pageSize=100`);
+      setSales(result.sales);
+    } catch (e) { setError(e instanceof Error ? e.message : "تعذر تحميل المبيعات."); }
+    finally { setLoading(false); }
+  }
+  async function loadCatalog() {
+    setCatalogLoading(true);
+    try {
+      const [productResult, customerResult] = await Promise.all([
+        api<{ products: Product[] }>(`/stores/${encodeURIComponent(storeId)}/products?page=1&pageSize=100`),
+        api<{ customers: Customer[] }>(`/stores/${encodeURIComponent(storeId)}/customers?page=1&pageSize=100`)
+      ]);
+      setProducts(productResult.products);
+      setCustomers(customerResult.customers);
+      setProductId((current) => productResult.products.some((p) => p.id === current) ? current : (productResult.products[0]?.id || ""));
+    } catch (e) { setError(e instanceof Error ? e.message : "تعذر تحميل المنتجات والعملاء."); }
+    finally { setCatalogLoading(false); }
+  }
+  useEffect(() => { void loadSales(); void loadCatalog(); }, [storeId]);
+
+  function addToCart() {
+    if (!selectedProduct || !Number.isFinite(Number(quantity)) || Number(quantity) <= 0) return;
+    setCart((current) => {
+      const existing = current.find((line) => line.productId === selectedProduct.id);
+      return existing
+        ? current.map((line) => line.productId === selectedProduct.id ? { ...line, quantity: String(Number(line.quantity) + Number(quantity)) } : line)
+        : [...current, { productId: selectedProduct.id, quantity }];
+    });
+    setQuantity("1");
+    setError("");
+  }
+  function resetSale() {
+    setCart([]); setCustomerId(""); setPaymentMethod("CASH"); setDiscountAmount("0"); setPaidAmount(""); setNote("");
+  }
+  async function createSale(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!cart.length) { setError("أضف منتجًا واحدًا على الأقل إلى الفاتورة."); return; }
+    if (Number(discountAmount) < 0 || Number(discountAmount) > subtotal) { setError("تحقق من قيمة الخصم؛ يجب ألا يتجاوز المجموع."); return; }
+    if (paymentMethod === "CREDIT" && !customerId) { setError("اختر عميلًا لتسجيل البيع الآجل."); return; }
+    if (paidAmount.trim() && paymentMethod !== "CREDIT" && Number(paidAmount) > total) { setError("المبلغ المدفوع لا يمكن أن يتجاوز إجمالي الفاتورة."); return; }
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const payload = {
+        ...(customerId ? { customerId } : {}),
+        discountAmount: String(Number(discountAmount || 0).toFixed(2)),
+        paymentMethod,
+        ...(paidAmount.trim() && paymentMethod !== "CREDIT" ? { paidAmount: paidAmount.trim() } : {}),
+        ...(note.trim() ? { note: note.trim() } : {}),
+        items: cart.map((line) => ({ productId: line.productId, quantity: line.quantity }))
+      };
+      const result = await api<{ sale: Sale; replayed?: boolean }>(`/stores/${encodeURIComponent(storeId)}/sales`, {
+        method: "POST",
+        headers: { "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify(payload)
+      });
+      setNotice(`تم تسجيل الفاتورة ${result.sale.invoiceNumber} بنجاح. الإجمالي: ${money(result.sale.totalAmount, currency)}.`);
+      resetSale(); setShowSaleForm(false);
+      await Promise.all([loadSales(), loadCatalog()]);
+    } catch (e) { setError(e instanceof Error ? e.message : "تعذر تسجيل البيع."); }
+    finally { setBusy(false); }
+  }
+
   return <section className="products-panel">
-    <div className="panel-heading"><div><h2>المبيعات والفواتير</h2><p>الفواتير وحالة التحصيل من بيانات المتجر</p></div><button className="secondary" onClick={() => void load()}><RefreshCw size={16}/> تحديث</button></div>
+    <div className="panel-heading"><div><h2>المبيعات والفواتير</h2><p>تسجيل بيع وتحديث المخزون عبر معاملة الخادم الآمنة</p></div><div className="sale-actions"><button className="secondary" onClick={() => { void loadSales(); void loadCatalog(); }}><RefreshCw size={16}/> تحديث</button><button className="primary" onClick={() => { setShowSaleForm((v) => !v); setError(""); setNotice(""); }} disabled={catalogLoading}><ShoppingCart size={16}/> بيع جديد</button></div></div>
     {error && <div className="alert error"><CircleAlert size={17}/>{error}</div>}
+    {notice && <div className="alert success">{notice}</div>}
+    {showSaleForm && <form className="sale-form" onSubmit={createSale}>
+      <div className="form-title sale-form-title"><div><h3>فاتورة بيع جديدة</h3><p>يُعاد احتساب الأسعار والمخزون وحد الائتمان في الخادم قبل الحفظ.</p></div><span>{catalogLoading ? "جارٍ تحميل البيانات…" : `${products.length.toLocaleString("ar")} منتج متاح`}</span></div>
+      <div className="sale-add-row">
+        <label>المنتج<select value={productId} onChange={(e) => setProductId(e.target.value)} required disabled={catalogLoading || products.length === 0}>{products.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.sku} · {money(p.salePrice, currency)}</option>)}</select></label>
+        <label>الكمية<input type="number" min="0.001" step="0.001" value={quantity} onChange={(e) => setQuantity(e.target.value)} required /></label>
+        <button type="button" className="secondary add-line" onClick={addToCart} disabled={!selectedProduct || Number(quantity) <= 0}><Plus size={16}/> إضافة</button>
+      </div>
+      {products.length === 0 && !catalogLoading && <p className="inline-hint"><AlertTriangle size={15}/> لا توجد منتجات محمّلة. أضف منتجًا أولًا من قسم المنتجات.</p>}
+      <div className="sale-cart">
+        <div className="sale-cart-heading"><strong>بنود الفاتورة</strong><span>{cart.length.toLocaleString("ar")} بند</span></div>
+        {cart.length === 0 ? <p className="cart-empty">أضف المنتجات التي يريد العميل شراءها.</p> : <div className="table-wrap"><table><thead><tr><th>المنتج</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th><th></th></tr></thead><tbody>
+          {cart.map((line) => { const p = productById.get(line.productId); return <tr key={line.productId}><td><strong>{p?.name || "منتج غير متاح"}</strong><small className="contact-sub">{p?.sku}</small></td><td><input className="cart-quantity" aria-label={`كمية ${p?.name || "المنتج"}`} type="number" min="0.001" step="0.001" value={line.quantity} onChange={(e) => setCart((current) => current.map((item) => item.productId === line.productId ? { ...item, quantity: e.target.value } : item))}/></td><td>{money(p?.salePrice || 0, currency)}</td><td className="price-cell">{money(Number(p?.salePrice || 0) * Number(line.quantity), currency)}</td><td><button type="button" className="icon-button" aria-label="حذف المنتج" onClick={() => setCart((current) => current.filter((item) => item.productId !== line.productId))}><Trash2 size={16}/></button></td></tr>; })}
+        </tbody></table></div>}
+      </div>
+      <div className="sale-details-grid">
+        <label>العميل (مطلوب للبيع الآجل أو الجزئي)<select value={customerId} onChange={(e) => setCustomerId(e.target.value)}><option value="">عميل نقدي / غير محدد</option>{customers.map((c) => <option key={c.id} value={c.id}>{c.name} · رصيد {money(c.creditBalance, currency)} / حد {money(c.creditLimit, currency)}</option>)}</select></label>
+        <label>طريقة الدفع<select value={paymentMethod} onChange={(e) => { const next = e.target.value as typeof paymentMethod; setPaymentMethod(next); if (next === "CREDIT") setPaidAmount("0"); else if (paidAmount === "0") setPaidAmount(""); }}><option value="CASH">نقدًا</option><option value="CARD">بطاقة</option><option value="TRANSFER">تحويل</option><option value="CREDIT">آجل</option></select></label>
+        <label>الخصم<input type="number" min="0" max={subtotal} step="0.01" value={discountAmount} onChange={(e) => setDiscountAmount(e.target.value)} /></label>
+        <label>المبلغ المدفوع (اختياري للدفع الكامل)<input type="number" min="0" max={total} step="0.01" value={paymentMethod === "CREDIT" ? "0" : paidAmount} disabled={paymentMethod === "CREDIT"} placeholder={money(total, currency)} onChange={(e) => setPaidAmount(e.target.value)}/></label>
+        <label className="sale-note">ملاحظة الفاتورة<input value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} placeholder="اختياري"/></label>
+      </div>
+      <div className="sale-total-row"><div><span>المجموع قبل الخصم</span><strong>{money(subtotal, currency)}</strong></div><div><span>الإجمالي بعد الخصم</span><strong>{money(total, currency)}</strong></div><div><span>المتبقي المتوقع</span><strong>{money(paymentMethod === "CREDIT" ? total : Math.max(0, total - (paidAmount.trim() ? Number(paidAmount) : total)), currency)}</strong></div></div>
+      <div className="form-actions sale-form-actions"><button type="button" className="secondary" onClick={() => { resetSale(); setShowSaleForm(false); }}>إلغاء</button><button className="primary" disabled={busy || catalogLoading || cart.length === 0}>{busy ? "جارٍ تسجيل الفاتورة…" : "تأكيد البيع وحفظ الفاتورة"}</button></div>
+      <p className="sale-security-note"><AlertTriangle size={14}/> لا يُعتمد رصيد المخزون المعروض وحده؛ يتحقق الخادم من الكميات الفعلية وحد الائتمان قبل إتمام البيع.</p>
+    </form>}
     <div className="table-tools"><span>{sales.length.toLocaleString("ar")} فاتورة محمّلة</span><span>{loading ? "جارٍ التحميل…" : "بيانات مباشرة"}</span></div>
     <div className="table-wrap"><table><thead><tr><th>رقم الفاتورة</th><th>العميل</th><th>التاريخ</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>التحصيل</th></tr></thead><tbody>
       {sales.map((sale) => <tr key={sale.id}><td><div className="product-name"><div className="product-thumb"><Receipt size={17}/></div><div><strong>{sale.invoiceNumber}</strong><small>{sale._count.items.toLocaleString("ar")} بند · {methodLabel[sale.paymentMethod] || sale.paymentMethod}</small></div></div></td><td>{sale.customer?.name || "عميل نقدي"}<small className="contact-sub">{sale.customer?.phone || ""}</small></td><td>{new Date(sale.createdAt).toLocaleDateString("ar", { year: "numeric", month: "short", day: "numeric" })}</td><td className="price-cell">{money(sale.totalAmount, currency)}</td><td>{money(sale.paidAmount, currency)}</td><td>{money(sale.balanceDue, currency)}</td><td><span className={sale.paymentStatus === "PAID" ? "status good" : "status low"}><span/>{paymentLabel[sale.paymentStatus] || sale.paymentStatus}</span></td></tr>)}
-      {!loading && sales.length === 0 && <tr><td colSpan={7}><div className="table-empty"><Receipt size={25}/><strong>لا توجد فواتير لعرضها</strong><span>ستظهر الفواتير هنا بعد تسجيل المبيعات.</span></div></td></tr>}
-    </tbody></table></div><div className="panel-foot"><span>عرض آخر 100 فاتورة. تسجيل البيع يتم عبر واجهة API المحمية، وليس من هذه الصفحة بعد.</span></div>
+      {!loading && sales.length === 0 && <tr><td colSpan={7}><div className="table-empty"><Receipt size={25}/><strong>لا توجد فواتير لعرضها</strong><span>سجّل أول عملية بيع من الزر أعلاه.</span></div></td></tr>}
+    </tbody></table></div><div className="panel-foot"><span>عرض آخر 100 فاتورة. أسعار البيع والمخزون وحد الائتمان تُتحقق من الخادم عند الحفظ.</span></div>
   </section>;
 }
