@@ -46,7 +46,7 @@ export default function SalesPage({ storeId, currency, canReturn }: Props) {
   const [returnBusy, setReturnBusy] = useState(false);
   const [paymentSale, setPaymentSale] = useState<Sale | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD" | "TRANSFER">("CASH");
+  const [collectionMethod, setCollectionMethod] = useState<"CASH" | "CARD" | "TRANSFER">("CASH");
   const [paymentReference, setPaymentReference] = useState("");
   const [paymentBusy, setPaymentBusy] = useState(false);
 
@@ -94,7 +94,7 @@ export default function SalesPage({ storeId, currency, canReturn }: Props) {
   }
   function openPayment(sale: Sale) {
     setReturnSale(null); setPaymentSale(sale); setPaymentAmount(String(sale.balanceDue));
-    setPaymentMethod("CASH"); setPaymentReference(""); setError(""); setNotice("");
+    setCollectionMethod("CASH"); setPaymentReference(""); setError(""); setNotice("");
   }
 
   async function createPayment(event: FormEvent<HTMLFormElement>) {
@@ -108,7 +108,7 @@ export default function SalesPage({ storeId, currency, canReturn }: Props) {
     try {
       const result = await api<{ sale?: { invoiceNumber: string; balanceDue: string | number; paymentStatus: string }; replayed?: boolean }>("/stores/" + encodeURIComponent(storeId) + "/sales/" + encodeURIComponent(paymentSale.id) + "/payments", {
         method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() },
-        body: JSON.stringify({ amount: paymentAmount, method: paymentMethod, ...(paymentReference.trim() ? { reference: paymentReference.trim() } : {}) })
+        body: JSON.stringify({ amount: paymentAmount, method: collectionMethod, ...(paymentReference.trim() ? { reference: paymentReference.trim() } : {}) })
       });
       setNotice("تم تسجيل الدفعة للفاتورة " + paymentSale.invoiceNumber + (result.sale ? "؛ المتبقي " + money(result.sale.balanceDue, currency) + "." : "."));
       setPaymentSale(null); setPaymentAmount(""); setPaymentReference("");
@@ -180,7 +180,7 @@ export default function SalesPage({ storeId, currency, canReturn }: Props) {
     {notice && <div className="alert success">{notice}</div>}
     {paymentSale && <form className="sale-form payment-form" onSubmit={createPayment}>
       <div className="form-title sale-form-title"><div><h3>تسجيل دفعة · {paymentSale.invoiceNumber}</h3><p>المتبقي على الفاتورة: {money(paymentSale.balanceDue, currency)}. سيتم تحديث حالة التحصيل ورصيد العميل في الخادم.</p></div><button type="button" className="icon-button" aria-label="إغلاق نموذج السداد" onClick={() => setPaymentSale(null)}><X size={16}/></button></div>
-      <div className="sale-details-grid"><label>مبلغ السداد *<input type="number" required min="0.01" max={Number(paymentSale.balanceDue)} step="0.01" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)}/></label><label>وسيلة السداد<select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as typeof paymentMethod)}><option value="CASH">نقدًا</option><option value="CARD">بطاقة</option><option value="TRANSFER">تحويل</option></select></label><label className="sale-note">مرجع العملية (اختياري)<input maxLength={180} value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} placeholder="رقم إيصال أو مرجع التحويل"/></label></div>
+      <div className="sale-details-grid"><label>مبلغ السداد *<input type="number" required min="0.01" max={Number(paymentSale.balanceDue)} step="0.01" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)}/></label><label>وسيلة السداد<select value={collectionMethod} onChange={(e) => setCollectionMethod(e.target.value as typeof collectionMethod)}><option value="CASH">نقدًا</option><option value="CARD">بطاقة</option><option value="TRANSFER">تحويل</option></select></label><label className="sale-note">مرجع العملية (اختياري)<input maxLength={180} value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} placeholder="رقم إيصال أو مرجع التحويل"/></label></div>
       <div className="form-actions sale-form-actions"><button type="button" className="secondary" onClick={() => setPaymentSale(null)}>إلغاء</button><button className="primary" disabled={paymentBusy}>{paymentBusy ? "جارٍ تسجيل الدفعة…" : "تأكيد السداد"}</button></div>
     </form>}
     {returnSale && canReturn && <form className="sale-form return-form" onSubmit={createReturn}>
