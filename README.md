@@ -66,7 +66,7 @@ unset BOOTSTRAP_ADMIN_PASSWORD
 - `POST /auth/login` · `GET /auth/me` · `POST /auth/logout`
 - `GET /stores/:storeId/products` · `POST /stores/:storeId/products`
 - `GET /stores/:storeId/customers` · `POST /stores/:storeId/customers`
-- `GET /stores/:storeId/sales` · `POST /stores/:storeId/sales`
+- `GET /stores/:storeId/sales` · `POST /stores/:storeId/sales` · `GET /stores/:storeId/sales/:saleId` · `POST /stores/:storeId/sales/:saleId/payments` · `POST /stores/:storeId/sales/:saleId/returns`
 - `GET /stores/:storeId/reports/daily` · `GET /stores/:storeId/reports/low-stock`
 - `GET /stores/:storeId/stock-movements` · `POST /stores/:storeId/stock-movements`
 - `GET /stores/:storeId/plans`
