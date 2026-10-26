@@ -52,7 +52,7 @@ purchaseRouter.get("/:storeId/purchases", authenticate, requireStoreAccess(undef
       ...(supplierId ? { supplierId } : {}),
       ...(q ? { OR: [
         { purchaseNumber: { contains: q, mode: "insensitive" as const } },
-        { supplier: { name: { contains: q, mode: "insensitive" as const } } }
+        { supplier: { is: { name: { contains: q, mode: "insensitive" as const } } } }
       ] } : {})
     };
     const [total, purchases] = await prisma.$transaction([
