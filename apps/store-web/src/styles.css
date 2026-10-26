@@ -25,3 +25,14 @@
 .admin-create-form{margin:0 16px 15px;padding:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;border:1px solid #e6e6f2;border-radius:11px;background:#fbfbfe}.admin-create-form label{display:flex;flex-direction:column;gap:6px;font-size:10px;color:#656b7e;font-weight:650}.admin-create-form input,.admin-create-form select{width:100%;min-width:0;border:1px solid #e1e4ef;border-radius:8px;padding:9px 10px;background:white;color:#252a3b;font:inherit;font-size:11px}.admin-create-form input:focus,.admin-create-form select:focus{outline:0;border-color:#8580ed;box-shadow:0 0 0 3px #8580ed20}.admin-wide-field{grid-column:1/-1}.admin-create-form .form-actions{padding:0;justify-content:flex-start}.admin-create-form .form-actions button{font-size:10px;padding:9px 12px}.admin-toggle{font-size:10px;padding:6px 8px;justify-self:start}.admin-catalog-item{grid-template-columns:minmax(0,1fr) auto;align-items:center}.admin-catalog-item .admin-toggle{grid-column:1/-1}
 @media(max-width:760px){.admin-create-form{margin:0 12px 13px;padding:12px;gap:9px}.admin-catalog-item .admin-toggle{grid-column:1/-1}}
 @media(max-width:420px){.admin-create-form{grid-template-columns:1fr}.admin-wide-field{grid-column:1}}
+
+
+/* Supplier and purchasing workflows */
+.purchase-line{grid-column:1/-1;display:grid;grid-template-columns:minmax(180px,2fr) repeat(2,minmax(100px,1fr)) minmax(115px,1fr);gap:12px;align-items:end;padding:13px;border:1px solid #e8ebf2;border-radius:11px;background:#fff}
+.purchase-line-total{display:flex;flex-direction:column;gap:5px;min-width:0;font-size:11px;color:#73798c}
+.purchase-line-total strong{font-size:13px;color:#292f43}
+.purchase-total{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:10px;background:#f0efff;color:#5149c8;font-size:12px;font-weight:600}
+.purchase-total strong{font-size:18px}
+.compact{padding:7px 10px!important;font-size:11px!important;white-space:nowrap}
+.text-button{border:0;background:transparent;color:#b43e4b;font-size:10px;padding:3px 0;text-align:right}
+@media(max-width:760px){.purchase-line{grid-template-columns:1fr 1fr}.purchase-line label:first-child{grid-column:1/-1}.purchase-line-total{grid-column:1/-1}.purchase-total{align-items:flex-start;flex-direction:column}}
