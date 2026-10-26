@@ -10,7 +10,7 @@ export const purchaseRouter = Router();
 
 const readRoles = ["STORE_OWNER", "STORE_MANAGER", "PURCHASING_STAFF"] as const;
 const writeRoles = ["STORE_OWNER", "STORE_MANAGER", "PURCHASING_STAFF"] as const;
-const quantitySchema = z.string().regex(/^\d{1,12}(\.\d{1,3})?$/).refine((value) => Number(value) > 0);
+const quantitySchema = z.string().regex(/^\d{1,11}(\.\d{1,3})?$/).refine((value) => Number(value) > 0);
 const moneySchema = z.string().regex(/^\d{1,12}(\.\d{1,2})?$/);
 
 const createPurchaseSchema = z.object({
@@ -75,7 +75,7 @@ purchaseRouter.get("/:storeId/purchases", authenticate, requireStoreAccess(undef
 purchaseRouter.post("/:storeId/purchases", authenticate, requireStoreAccess(undefined, writeRoles), async (request, response, next) => {
   const parsed = createPurchaseSchema.safeParse(request.body);
   const storeId = request.params.storeId;
-  const idempotencyKey = request.get("Idempotency-Key");
+  const idempotencyKey = request.get("Idempotency-Key")?.trim();
 
   if (!storeId) {
     response.status(400).json({ error: { code: "STORE_ID_REQUIRED", message: "معرّف المتجر مطلوب." } });
@@ -131,9 +131,19 @@ purchaseRouter.post("/:storeId/purchases", authenticate, requireStoreAccess(unde
       const lines = data.items.map((item) => {
         const quantity = new Prisma.Decimal(item.quantity);
         const unitCost = new Prisma.Decimal(item.unitCost);
-        return { ...item, quantity, unitCost, lineTotal: quantity.mul(unitCost) };
+        return {
+          ...item,
+          quantity,
+          unitCost,
+          lineTotal: quantity.mul(unitCost).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP)
+        };
       });
       const subtotal = lines.reduce((sum, item) => sum.add(item.lineTotal), new Prisma.Decimal(0));
+      // Prisma schema stores monetary values as Decimal(14, 2).
+      const maxMoney = new Prisma.Decimal("999999999999.99");
+      if (subtotal.greaterThan(maxMoney) || lines.some((item) => item.lineTotal.greaterThan(maxMoney))) {
+        return { kind: "invalid_total" as const };
+      }
 
       const purchase = await tx.purchase.create({
         data: {
@@ -217,6 +227,10 @@ purchaseRouter.post("/:storeId/purchases", authenticate, requireStoreAccess(unde
     }
     if (result.kind === "key_conflict") {
       response.status(409).json({ error: { code: "IDEMPOTENCY_KEY_REUSED", message: "استُخدم مفتاح العملية سابقًا لطلب مختلف." } });
+      return;
+    }
+    if (result.kind === "invalid_total") {
+      response.status(400).json({ error: { code: "PURCHASE_TOTAL_TOO_LARGE", message: "إجمالي الفاتورة يتجاوز الحد المالي المسموح به." } });
       return;
     }
 
