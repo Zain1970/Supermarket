@@ -7,6 +7,7 @@ import LowStockPage from "./LowStockPage";
 import InventoryPage from "./InventoryPage";
 import BillingPage from "./BillingPage";
 import AdminPage from "./AdminPage";
+import { SuppliersPage, PurchasesPage } from "./SuppliersPurchasesPage";
 
 type Store = { id: string; name: string; slug: string; currency: string; role: string; status: string };
 type Product = { id: string; sku: string; barcode?: string | null; name: string; unit: string; salePrice: string | number; costPrice?: string | number | null; stockQuantity: string | number; lowStockAt: string | number; category?: { name: string } | null };
@@ -36,7 +37,7 @@ export default function App() {
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [stores, setStores] = useState<Store[]>([]);
   const [storeId, setStoreId] = useState("");
-  const [activeSection, setActiveSection] = useState<"products" | "customers" | "sales" | "reports" | "low-stock" | "inventory" | "billing" | "admin">("products");
+  const [activeSection, setActiveSection] = useState<"products" | "customers" | "sales" | "reports" | "low-stock" | "inventory" | "billing" | "admin" | "suppliers" | "purchases">("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -161,6 +162,10 @@ export default function App() {
         {(selectedStore?.role === "STORE_OWNER" || selectedStore?.role === "STORE_MANAGER") && <button className={`nav-item ${activeSection === "reports" ? "active" : ""}`} onClick={() => setActiveSection("reports")}><TrendingUp size={19} /> التقارير اليومية</button>}
         {(selectedStore?.role === "STORE_OWNER" || selectedStore?.role === "STORE_MANAGER") && <button className={`nav-item ${activeSection === "billing" ? "active" : ""}`} onClick={() => setActiveSection("billing")}><CreditCard size={19} /> الباقات والإضافات</button>}
         {(selectedStore?.role === "STORE_OWNER" || selectedStore?.role === "STORE_MANAGER" || selectedStore?.role === "INVENTORY_STAFF") && <button className={`nav-item ${activeSection === "inventory" ? "active" : ""}`} onClick={() => setActiveSection("inventory")}><PackageCheck size={19} /> حركات المخزون</button>}
+        {(selectedStore?.role === "STORE_OWNER" || selectedStore?.role === "STORE_MANAGER" || selectedStore?.role === "PURCHASING_STAFF") && <>
+          <button className={`nav-item ${activeSection === "suppliers" ? "active" : ""}`} onClick={() => setActiveSection("suppliers")}><Users size={19} /> الموردون</button>
+          <button className={`nav-item ${activeSection === "purchases" ? "active" : ""}`} onClick={() => setActiveSection("purchases")}><PackagePlus size={19} /> المشتريات</button>
+        </>}
         {(selectedStore?.role === "STORE_OWNER" || selectedStore?.role === "STORE_MANAGER" || selectedStore?.role === "INVENTORY_STAFF") && <button className={`nav-item ${activeSection === "low-stock" ? "active" : ""}`} onClick={() => setActiveSection("low-stock")}><CircleAlert size={19} /> تنبيهات المخزون</button>}
       </>}
       {isPlatformAdmin && <button className={`nav-item ${activeSection === "admin" ? "active" : ""}`} onClick={() => setActiveSection("admin")}><ShieldCheck size={19} /> إدارة المنصة</button>}
@@ -168,7 +173,7 @@ export default function App() {
       <div className="sidebar-bottom"><div className="avatar">{(selectedStore?.name || "م").slice(0, 1)}</div><div className="account-name"><strong>{selectedStore?.name || "لا يوجد متجر"}</strong><small>{selectedStore?.role || "حساب مسجل"}</small></div><button className="icon-button" title="تسجيل الخروج" onClick={() => void logout()} disabled={busy}><LogOut size={17} /></button></div>
     </aside>
     <main className="main-panel">
-      <header className="topbar"><div><span className="eyebrow">لوحة التحكم</span><h1>{({ products: "المنتجات والمخزون", customers: "العملاء", sales: "المبيعات والفواتير", reports: "التقارير اليومية", "low-stock": "تنبيهات المخزون المنخفض", inventory: "حركات المخزون", billing: "الباقات والاشتراكات", admin: "إدارة المنصة" })[activeSection]}</h1></div><div className="top-actions">
+      <header className="topbar"><div><span className="eyebrow">لوحة التحكم</span><h1>{({ products: "المنتجات والمخزون", customers: "العملاء", sales: "المبيعات والفواتير", reports: "التقارير اليومية", "low-stock": "تنبيهات المخزون المنخفض", inventory: "حركات المخزون", billing: "الباقات والاشتراكات", admin: "إدارة المنصة", suppliers: "الموردون", purchases: "المشتريات" })[activeSection]}</h1></div><div className="top-actions">
         <label className="store-select"><StoreIcon size={17} /><select aria-label="اختيار المتجر" value={storeId} onChange={(e) => { setStoreId(e.target.value); setActiveSection("products"); }}><option value="">اختر متجرًا</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select><ChevronDown size={15} /></label>
         <button className="icon-button refresh" aria-label="تحديث البيانات" onClick={() => void loadProducts(storeId).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "تعذر التحديث."))}><RefreshCw size={17} /></button>
       </div></header>
@@ -203,6 +208,8 @@ export default function App() {
           <div className="panel-foot"><span>عرض أول 100 منتج نشط. يمكن توسيع الجدول إلى صفحات في المرحلة التالية.</span><span className="secure-note"><ShieldCheck size={15} /> الوصول محمي من الخادم</span></div>
         </section>}
         {activeSection === "customers" && selectedStore && <CustomersPage storeId={selectedStore.id} currency={selectedStore.currency} />}
+        {activeSection === "suppliers" && selectedStore && (selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER" || selectedStore.role === "PURCHASING_STAFF") && <SuppliersPage storeId={selectedStore.id} currency={selectedStore.currency} />}
+        {activeSection === "purchases" && selectedStore && (selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER" || selectedStore.role === "PURCHASING_STAFF") && <PurchasesPage storeId={selectedStore.id} currency={selectedStore.currency} />}
         {activeSection === "sales" && selectedStore && (selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER" || selectedStore.role === "CASHIER") && <SalesPage storeId={selectedStore.id} currency={selectedStore.currency} canReturn={selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER"} />}
         {activeSection === "reports" && selectedStore && (selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER") && <ReportsPage storeId={selectedStore.id} />}
         {activeSection === "billing" && selectedStore && (selectedStore.role === "STORE_OWNER" || selectedStore.role === "STORE_MANAGER") && <BillingPage storeId={selectedStore.id} />}
