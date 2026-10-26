@@ -13,6 +13,10 @@ const writeRoles = ["STORE_OWNER", "STORE_MANAGER", "PURCHASING_STAFF"] as const
 const quantitySchema = z.string().regex(/^\d{1,11}(\.\d{1,3})?$/).refine((value) => Number(value) > 0);
 const moneySchema = z.string().regex(/^\d{1,12}(\.\d{1,2})?$/);
 
+export function calculatePurchaseLineTotal(quantity: string, unitCost: string): Prisma.Decimal {
+  return new Prisma.Decimal(quantity).mul(new Prisma.Decimal(unitCost)).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+}
+
 const createPurchaseSchema = z.object({
   supplierId: z.string().trim().min(1).max(100),
   purchaseNumber: z.string().trim().min(1).max(80),
@@ -135,7 +139,7 @@ purchaseRouter.post("/:storeId/purchases", authenticate, requireStoreAccess(unde
           ...item,
           quantity,
           unitCost,
-          lineTotal: quantity.mul(unitCost).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP)
+          lineTotal: calculatePurchaseLineTotal(item.quantity, item.unitCost)
         };
       });
       const subtotal = lines.reduce((sum, item) => sum.add(item.lineTotal), new Prisma.Decimal(0));
