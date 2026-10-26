@@ -106,6 +106,7 @@ npm run build
 - [تقرير الاختبارات](TEST_REPORT.md)
 - [العوائق والقرارات](CODEX_BLOCKERS.md)
 - [مراجعة UX](UX_REVIEW.md)
+- [توثيق واجهات الموردين والمشتريات](docs/PURCHASING_API_AR.md)
 - [سجل التغييرات](CHANGELOG.md)
 
 ## تحذيرات مهمة
