@@ -29,6 +29,11 @@ enum ProductStatus {
   ARCHIVED
 }
 
+enum PurchaseStatus {
+  RECEIVED
+  VOIDED
+}
+
 enum SaleStatus {
   COMPLETED
   VOIDED
@@ -120,6 +125,7 @@ model Store {
   payments      Payment[]
   customers     Customer[]
   suppliers     Supplier[]
+  purchases     Purchase[]
   sales         Sale[]
   saleReturns   SaleReturn[]
 
@@ -212,6 +218,7 @@ model Product {
   category       ProductCategory? @relation(fields: [storeId, categoryId], references: [storeId, id], onDelete: Restrict)
   stockMovements StockMovement[]
   saleItems      SaleItem[]
+  purchaseItems  PurchaseItem[]
 
   @@unique([storeId, sku])
   @@unique([storeId, id])
@@ -260,6 +267,49 @@ model Supplier {
   @@index([storeId, name])
   @@index([storeId, phone])
   @@index([storeId, isActive, createdAt])
+  purchases   Purchase[]
+}
+
+model Purchase {
+  id             String         @id @default(cuid())
+  storeId        String
+  supplierId     String
+  purchaseNumber String
+  status         PurchaseStatus @default(RECEIVED)
+  subtotal       Decimal        @db.Decimal(14, 2)
+  totalAmount    Decimal        @db.Decimal(14, 2)
+  notes          String?
+  idempotencyKey String
+  requestHash    String
+  actorUserId    String
+  receivedAt     DateTime       @default(now())
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  store          Store          @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  supplier       Supplier       @relation(fields: [storeId, supplierId], references: [storeId, id], onDelete: Restrict)
+  items          PurchaseItem[]
+
+  @@unique([storeId, id])
+  @@unique([storeId, purchaseNumber])
+  @@unique([storeId, idempotencyKey])
+  @@index([storeId, supplierId, receivedAt])
+  @@index([storeId, receivedAt])
+}
+
+model PurchaseItem {
+  id         String   @id @default(cuid())
+  storeId    String
+  purchaseId String
+  productId  String
+  quantity   Decimal  @db.Decimal(14, 3)
+  unitCost   Decimal  @db.Decimal(14, 2)
+  lineTotal  Decimal  @db.Decimal(14, 2)
+  createdAt  DateTime @default(now())
+  purchase   Purchase @relation(fields: [storeId, purchaseId], references: [storeId, id], onDelete: Restrict)
+  product    Product  @relation(fields: [storeId, productId], references: [storeId, id], onDelete: Restrict)
+
+  @@index([storeId, purchaseId])
+  @@index([storeId, productId, createdAt])
 }
 
 model Customer {
