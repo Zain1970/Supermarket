@@ -141,3 +141,30 @@ test("sales return API requires store authentication", async () => {
   assert.equal(response.status, 401);
   assert.equal(response.body.error.code, "UNAUTHENTICATED");
 });
+
+
+test("supplier management API requires store authentication", async () => {
+  const listResponse = await request(app).get("/stores/store-a/suppliers");
+  const createResponse = await request(app).post("/stores/store-a/suppliers").send({ name: "مورد تجريبي" });
+
+  assert.equal(listResponse.status, 401);
+  assert.equal(listResponse.body.error.code, "UNAUTHENTICATED");
+  assert.equal(createResponse.status, 401);
+  assert.equal(createResponse.body.error.code, "UNAUTHENTICATED");
+});
+
+test("purchase receiving API requires store authentication", async () => {
+  const listResponse = await request(app).get("/stores/store-a/purchases");
+  const createResponse = await request(app).post("/stores/store-a/purchases")
+    .set("Idempotency-Key", "purchase-key-0001")
+    .send({
+      supplierId: "supplier-a",
+      purchaseNumber: "PUR-0001",
+      items: [{ productId: "product-a", quantity: "2", unitCost: "10.00" }]
+    });
+
+  assert.equal(listResponse.status, 401);
+  assert.equal(listResponse.body.error.code, "UNAUTHENTICATED");
+  assert.equal(createResponse.status, 401);
+  assert.equal(createResponse.body.error.code, "UNAUTHENTICATED");
+});
