@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import request from "supertest";
 import { app } from "./app.js";
+import { calculatePurchaseLineTotal } from "./stores/purchases.js";
 
 test("GET /health returns service health without exposing secrets", async () => {
   const response = await request(app).get("/health");
@@ -180,4 +181,11 @@ test("API responses include baseline security headers and disable caching", asyn
   assert.equal(response.headers["content-security-policy"], "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
   assert.equal(response.headers["cache-control"], "no-store");
   assert.equal(response.headers["x-powered-by"], undefined);
+});
+
+
+test("purchase line totals round half-up to the currency precision", () => {
+  assert.equal(calculatePurchaseLineTotal("1.005", "1.00").toFixed(2), "1.01");
+  assert.equal(calculatePurchaseLineTotal("0.125", "0.04").toFixed(2), "0.01");
+  assert.equal(calculatePurchaseLineTotal("2", "10.25").toFixed(2), "20.50");
 });
