@@ -119,6 +119,7 @@ model Store {
   storeAddons   StoreAddon[]
   payments      Payment[]
   customers     Customer[]
+  suppliers     Supplier[]
   sales         Sale[]
   saleReturns   SaleReturn[]
 
@@ -240,6 +241,26 @@ model StockMovement {
   @@unique([storeId, idempotencyKey])
 }
 
+
+model Supplier {
+  id          String   @id @default(cuid())
+  storeId     String
+  name        String
+  phone       String?
+  email       String?
+  address     String?
+  taxNumber   String?
+  notes       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+
+  @@unique([storeId, id])
+  @@index([storeId, name])
+  @@index([storeId, phone])
+  @@index([storeId, isActive, createdAt])
+}
 
 model Customer {
   id            String   @id @default(cuid())
